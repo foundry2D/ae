@@ -2,16 +2,23 @@ package ae;
 import kha.arrays.Float32Array;
 
 class AudioManager {
+	var isLinear:Bool = true;// i.e. : In composition mode or In-game
 	var bpm = 120;
 	var time = [4,4];
 	var metro = false;
 	static var freqs:Float32Array = new Float32Array(87);
-	var ref:Pair<Int,Int> = new Pair(69,440);// Midi number,Freq
+	var registered:Array<IEvent> = [];
+	var ref:Pair<Int,Int> = new Pair(69,440);// Midi number,Frequency
 	public static var instance(default, null):AudioManager = new AudioManager();
 	private function new(){
 		setTuning(Tunings.TET12);
 
 	}
+	/**
+	 * [Description]
+	 * Receives a tuning and sets the frequency data accordingly
+	 * @param tune
+	 */
 	function setTuning(tune:Tunings):Void {
 		switch tune {
 			case Tunings.TET12:
@@ -32,14 +39,23 @@ class AudioManager {
 	/**
 	 * [Description]
 	 * Returns the frequency based on the midi note number
-	 * @param i
-	 * @return Float frequency value
+	 * @param m
+	 * @return Float frequency value if is between midi note 21 to 108
 	 */
-	public function ToFreqs(i:Int):Float{
-		if(i >=21){
-			return freqs[i-21];
+	public function toFreqs(m:Int):Float{
+		if(m >=21 && m <= 108){
+			return freqs[m-21];
 		}
 		return 0.0;
+	}
+	public function update():Void {
+		if(isLinear){
+			for(e in registered){
+				e.update();
+			}
+		}
+		
+
 	}
 		
 }

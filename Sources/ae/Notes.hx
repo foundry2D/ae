@@ -2,7 +2,6 @@ package ae;
 
 @:enum abstract Notes(Int) from Int{
 	// @:access(ae.AudioManager.ToFreqs)
-	static var toIntMap:Map<Notes,Int> = MacroTools.buildMap("ae.Notes",false,true);
 	// static var toStringMap:Map<Notes, String> = MacroTools.buildMap("ae.Notes",true);
 	var A0=21;
 	var Bb0=22;
@@ -92,14 +91,22 @@ package ae;
 	var Bb7=106;
 	var B7=107;
 	var C8=108;
+	static var toIntMap:Map<Notes,Int> = MacroTools.buildMap("ae.Notes",false,true);
+	static var toNoteMap:Map<Int,Notes> = MacroTools.buildMap("ae.Notes",false,true);
 	/**
 	 * [Description]
 	 * Returns the frequency based on the Notes enum value
 	 * @param n 
 	 * @return Float
 	 */
-	public static inline function ToFreq(n:Notes):Float{
-		return AudioManager.instance.ToFreqs(toIntMap.get(n));
+	public static inline function toFreq(n:Notes):Float{
+		return AudioManager.instance.toFreqs(toMidi(n));
+	}
+	public static inline function toMidi(n:Notes):Int {
+		return toIntMap.get(n);
+	}
+	public static inline function toNote(m:Int):Notes {
+		return toNoteMap.get(m);
 	}
 	
 }

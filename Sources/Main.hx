@@ -10,6 +10,7 @@ import kha.System;
 class Main {
 	static function update(): Void {
 		// trace(Notes.ToFreq(Notes.C1));
+		ae.AudioManager.instance.update();
 	}
 
 	static function render(frames: Array<Framebuffer>): Void {
@@ -24,7 +25,6 @@ class Main {
 				// so replacing them via code injection works
 				Scheduler.addTimeTask(function () { update(); }, 0, 1 / 60);
 				System.notifyOnFrames(function (frames) { render(frames); });
-				ae.AudioManager.instance;
 			});
 		});
 	}
