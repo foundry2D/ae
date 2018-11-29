@@ -1,6 +1,13 @@
 {
 	"files": [
 		{
+			"name": "tone",
+			"files": [
+				"tone.ogg"
+			],
+			"type": "sound"
+		},
+		{
 			"name": "painter_colored_frag",
 			"files": [
 				"painter-colored.frag.essl",

@@ -1,16 +1,20 @@
 package;
 
 import ae.AudioManager;
-import ae.Notes;
 import kha.Assets;
 import kha.Framebuffer;
 import kha.Scheduler;
 import kha.System;
 
 class Main {
+	static var snd:Null<ae.AudioClip>;
+	static var godown:Bool = false;
 	static function update(): Void {
-		// trace(Notes.ToFreq(Notes.C1));
-		ae.AudioManager.instance.update();
+		if(snd!= null){
+			trace(snd.isPlaying());
+		}
+		
+
 	}
 
 	static function render(frames: Array<Framebuffer>): Void {
@@ -25,6 +29,12 @@ class Main {
 				// so replacing them via code injection works
 				Scheduler.addTimeTask(function () { update(); }, 0, 1 / 60);
 				System.notifyOnFrames(function (frames) { render(frames); });
+				AudioManager.instance;
+				snd = new ae.AudioClip('tone');
+				snd.play();
+				snd.volume = 0.1;
+				snd.stop();
+				
 			});
 		});
 	}

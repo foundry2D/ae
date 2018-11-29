@@ -108,6 +108,9 @@ var Main = function() { };
 $hxClasses["Main"] = Main;
 Main.__name__ = true;
 Main.update = function() {
+	if(Main.snd != null) {
+		haxe_Log.trace(Main.snd.isPlaying(),{ fileName : "Main.hx", lineNumber : 14, className : "Main", methodName : "update"});
+	}
 };
 Main.render = function(frames) {
 };
@@ -120,6 +123,10 @@ Main.main = function() {
 			kha_System.notifyOnFrames(function(frames) {
 				Main.render(frames);
 			});
+			Main.snd = new ae_AudioClip("tone");
+			Main.snd.play();
+			Main.snd.set_volume(0.1);
+			Main.snd.stop();
 		});
 	});
 };
@@ -222,19 +229,78 @@ _$UInt_UInt_$Impl_$.toFloat = function(this1) {
 		return int + 0.0;
 	}
 };
+var ae_AudioClip = function(s) {
+	this.paused = false;
+	this.channel = null;
+	var t = kha_Assets.sounds.get(s);
+	if(t == null) {
+		kha_Assets.loadSound(s,$bind(this,this.load),$bind(this,this.error),{ fileName : "ae/AudioClip.hx", lineNumber : 23, className : "ae.AudioClip", methodName : "new"});
+	} else {
+		this.snd = t;
+	}
+};
+$hxClasses["ae.AudioClip"] = ae_AudioClip;
+ae_AudioClip.__name__ = true;
+ae_AudioClip.prototype = {
+	channel: null
+	,snd: null
+	,paused: null
+	,volume: null
+	,get_volume: function() {
+		return this.channel.get_volume();
+	}
+	,set_volume: function(v) {
+		this.channel.set_volume(v);
+		return this.channel.get_volume();
+	}
+	,load: function(s) {
+		this.snd = s;
+	}
+	,error: function(error) {
+		haxe_Log.trace(error,{ fileName : "ae/AudioClip.hx", lineNumber : 35, className : "ae.AudioClip", methodName : "error"});
+	}
+	,play: function() {
+		if(this.channel == null && this.snd != null) {
+			this.channel = kha_audio2_Audio1.play(this.snd,false);
+			this.paused = false;
+		} else if(this.channel != null && this.snd != null) {
+			this.channel.play();
+			this.paused = false;
+		}
+	}
+	,stop: function() {
+		this.channel.stop();
+	}
+	,pause: function() {
+		this.channel.pause();
+		this.paused = true;
+	}
+	,isPlaying: function() {
+		if(!this.channel.get_finished()) {
+			return !this.paused;
+		} else {
+			return false;
+		}
+	}
+	,__class__: ae_AudioClip
+};
 var ae_AudioManager = function() {
 	this.ref = new ae_Pair(69,440);
+	this.registered = [];
 	this.metro = false;
 	this.time = [4,4];
 	this.bpm = 120;
+	this.isLinear = true;
 	this.setTuning(0);
 };
 $hxClasses["ae.AudioManager"] = ae_AudioManager;
 ae_AudioManager.__name__ = true;
 ae_AudioManager.prototype = {
-	bpm: null
+	isLinear: null
+	,bpm: null
 	,time: null
 	,metro: null
+	,registered: null
 	,ref: null
 	,setTuning: function(tune) {
 		if(tune == 0) {
@@ -258,22 +324,40 @@ ae_AudioManager.prototype = {
 		}
 		return 0.0;
 	}
+	,update: function() {
+		if(this.isLinear) {
+			var _g = 0;
+			var _g1 = this.registered;
+			while(_g < _g1.length) {
+				var e = _g1[_g];
+				++_g;
+				e.update();
+			}
+		}
+	}
 	,__class__: ae_AudioManager
 };
-var ae_MacroTools = function() { };
-$hxClasses["ae.MacroTools"] = ae_MacroTools;
-ae_MacroTools.__name__ = true;
-var ae__$Notes_Notes_$Impl_$ = {};
-$hxClasses["ae._Notes.Notes_Impl_"] = ae__$Notes_Notes_$Impl_$;
-ae__$Notes_Notes_$Impl_$.__name__ = true;
-ae__$Notes_Notes_$Impl_$.toFreq = function(n) {
-	return ae_AudioManager.instance.toFreqs(ae__$Notes_Notes_$Impl_$.toIntMap.get(n));
+var ae_IEvent = function() {
+	this.children = [];
+	this.parent = null;
 };
-ae__$Notes_Notes_$Impl_$.toMidi = function(n) {
-	return ae__$Notes_Notes_$Impl_$.toIntMap.get(n);
-};
-ae__$Notes_Notes_$Impl_$.toNote = function(m) {
-	return ae__$Notes_Notes_$Impl_$.toNoteMap.h[m];
+$hxClasses["ae.IEvent"] = ae_IEvent;
+ae_IEvent.__name__ = true;
+ae_IEvent.prototype = {
+	start: null
+	,end: null
+	,loops: null
+	,length: null
+	,get_length: function() {
+		return this.end - this.start;
+	}
+	,parent: null
+	,children: null
+	,type: null
+	,update: function() {
+		return;
+	}
+	,__class__: ae_IEvent
 };
 var ae_Pair = function(f,s) {
 	this.set_first(f);
@@ -310,11 +394,6 @@ ae_Pair.prototype = {
 var haxe_IMap = function() { };
 $hxClasses["haxe.IMap"] = haxe_IMap;
 haxe_IMap.__name__ = true;
-haxe_IMap.prototype = {
-	get: null
-	,set: null
-	,__class__: haxe_IMap
-};
 var haxe_Log = function() { };
 $hxClasses["haxe.Log"] = haxe_Log;
 haxe_Log.__name__ = true;
@@ -932,12 +1011,6 @@ haxe_ds_IntMap.__name__ = true;
 haxe_ds_IntMap.__interfaces__ = [haxe_IMap];
 haxe_ds_IntMap.prototype = {
 	h: null
-	,set: function(key,value) {
-		this.h[key] = value;
-	}
-	,get: function(key) {
-		return this.h[key];
-	}
 	,keys: function() {
 		var a = [];
 		for( var key in this.h ) if(this.h.hasOwnProperty(key)) {
@@ -1000,9 +1073,6 @@ haxe_ds_ObjectMap.prototype = {
 		this.h[id] = value;
 		this.h.__keys__[id] = key;
 	}
-	,get: function(key) {
-		return this.h[key.__id__];
-	}
 	,__class__: haxe_ds_ObjectMap
 };
 var haxe_ds_StringMap = function() {
@@ -1014,19 +1084,6 @@ haxe_ds_StringMap.__interfaces__ = [haxe_IMap];
 haxe_ds_StringMap.prototype = {
 	h: null
 	,rh: null
-	,set: function(key,value) {
-		if(__map_reserved[key] != null) {
-			this.setReserved(key,value);
-		} else {
-			this.h[key] = value;
-		}
-	}
-	,get: function(key) {
-		if(__map_reserved[key] != null) {
-			return this.getReserved(key);
-		}
-		return this.h[key];
-	}
 	,setReserved: function(key,value) {
 		if(this.rh == null) {
 			this.rh = { };
@@ -1586,13 +1643,38 @@ kha__$Assets_ImageList.prototype = {
 	,__class__: kha__$Assets_ImageList
 };
 var kha__$Assets_SoundList = function() {
-	this.names = [];
+	this.names = ["tone"];
+	this.toneDescription = { name : "tone", files : ["tone.ogg"], type : "sound"};
+	this.toneName = "tone";
+	this.tone = null;
 };
 $hxClasses["kha._Assets.SoundList"] = kha__$Assets_SoundList;
 kha__$Assets_SoundList.__name__ = true;
 kha__$Assets_SoundList.prototype = {
 	get: function(name) {
 		return Reflect.field(this,name);
+	}
+	,tone: null
+	,toneName: null
+	,toneDescription: null
+	,toneLoad: function(done,failure) {
+		var tmp;
+		if(failure != null) {
+			tmp = failure;
+		} else {
+			var f = haxe_Log.trace;
+			var infos = { fileName : "kha/internal/AssetsBuilder.hx", lineNumber : 134, className : "kha._Assets.SoundList", methodName : "toneLoad"};
+			tmp = function(v) {
+				f(v,infos);
+			};
+		}
+		kha_Assets.loadSound("tone",function(sound) {
+			done();
+		},tmp,{ fileName : "kha/internal/AssetsBuilder.hx", lineNumber : 134, className : "kha._Assets.SoundList", methodName : "toneLoad"});
+	}
+	,toneUnload: function() {
+		this.tone.unload();
+		this.tone = null;
 	}
 	,names: null
 	,__class__: kha__$Assets_SoundList
@@ -20590,6 +20672,7 @@ Object.defineProperty(js__$Boot_HaxeError.prototype,"message",{ get : function()
 if(ArrayBuffer.prototype.slice == null) {
 	ArrayBuffer.prototype.slice = js_html__$ArrayBuffer_ArrayBufferCompat.sliceImpl;
 }
+Main.godown = false;
 ae_AudioManager.freqs = (function($this) {
 	var $r;
 	var this1 = new Float32Array(87);
@@ -20597,210 +20680,6 @@ ae_AudioManager.freqs = (function($this) {
 	return $r;
 }(this));
 ae_AudioManager.instance = new ae_AudioManager();
-ae__$Notes_Notes_$Impl_$.A0 = 21;
-ae__$Notes_Notes_$Impl_$.Bb0 = 22;
-ae__$Notes_Notes_$Impl_$.B0 = 23;
-ae__$Notes_Notes_$Impl_$.C1 = 24;
-ae__$Notes_Notes_$Impl_$.Db1 = 25;
-ae__$Notes_Notes_$Impl_$.D1 = 26;
-ae__$Notes_Notes_$Impl_$.Eb1 = 27;
-ae__$Notes_Notes_$Impl_$.E1 = 28;
-ae__$Notes_Notes_$Impl_$.F1 = 29;
-ae__$Notes_Notes_$Impl_$.Gb1 = 30;
-ae__$Notes_Notes_$Impl_$.G1 = 31;
-ae__$Notes_Notes_$Impl_$.Ab1 = 32;
-ae__$Notes_Notes_$Impl_$.A1 = 33;
-ae__$Notes_Notes_$Impl_$.Bb1 = 34;
-ae__$Notes_Notes_$Impl_$.B1 = 35;
-ae__$Notes_Notes_$Impl_$.C2 = 36;
-ae__$Notes_Notes_$Impl_$.Db2 = 37;
-ae__$Notes_Notes_$Impl_$.D2 = 38;
-ae__$Notes_Notes_$Impl_$.Eb2 = 39;
-ae__$Notes_Notes_$Impl_$.E2 = 40;
-ae__$Notes_Notes_$Impl_$.F2 = 41;
-ae__$Notes_Notes_$Impl_$.Gb2 = 42;
-ae__$Notes_Notes_$Impl_$.G2 = 43;
-ae__$Notes_Notes_$Impl_$.Ab2 = 44;
-ae__$Notes_Notes_$Impl_$.A2 = 45;
-ae__$Notes_Notes_$Impl_$.Bb2 = 46;
-ae__$Notes_Notes_$Impl_$.B2 = 47;
-ae__$Notes_Notes_$Impl_$.C3 = 48;
-ae__$Notes_Notes_$Impl_$.Db3 = 49;
-ae__$Notes_Notes_$Impl_$.D3 = 50;
-ae__$Notes_Notes_$Impl_$.Eb3 = 51;
-ae__$Notes_Notes_$Impl_$.E3 = 52;
-ae__$Notes_Notes_$Impl_$.F3 = 53;
-ae__$Notes_Notes_$Impl_$.Gb3 = 54;
-ae__$Notes_Notes_$Impl_$.G3 = 55;
-ae__$Notes_Notes_$Impl_$.Ab3 = 56;
-ae__$Notes_Notes_$Impl_$.A3 = 57;
-ae__$Notes_Notes_$Impl_$.Bb3 = 58;
-ae__$Notes_Notes_$Impl_$.B3 = 59;
-ae__$Notes_Notes_$Impl_$.C4 = 60;
-ae__$Notes_Notes_$Impl_$.Db4 = 61;
-ae__$Notes_Notes_$Impl_$.D4 = 62;
-ae__$Notes_Notes_$Impl_$.Eb4 = 63;
-ae__$Notes_Notes_$Impl_$.E4 = 64;
-ae__$Notes_Notes_$Impl_$.F4 = 65;
-ae__$Notes_Notes_$Impl_$.Gb4 = 66;
-ae__$Notes_Notes_$Impl_$.G4 = 67;
-ae__$Notes_Notes_$Impl_$.Ab4 = 68;
-ae__$Notes_Notes_$Impl_$.A4 = 69;
-ae__$Notes_Notes_$Impl_$.Bb4 = 70;
-ae__$Notes_Notes_$Impl_$.B4 = 71;
-ae__$Notes_Notes_$Impl_$.C5 = 72;
-ae__$Notes_Notes_$Impl_$.Db5 = 73;
-ae__$Notes_Notes_$Impl_$.D5 = 74;
-ae__$Notes_Notes_$Impl_$.Eb5 = 75;
-ae__$Notes_Notes_$Impl_$.E5 = 76;
-ae__$Notes_Notes_$Impl_$.F5 = 77;
-ae__$Notes_Notes_$Impl_$.Gb5 = 78;
-ae__$Notes_Notes_$Impl_$.G5 = 79;
-ae__$Notes_Notes_$Impl_$.Ab5 = 80;
-ae__$Notes_Notes_$Impl_$.A5 = 81;
-ae__$Notes_Notes_$Impl_$.Bb5 = 82;
-ae__$Notes_Notes_$Impl_$.B5 = 83;
-ae__$Notes_Notes_$Impl_$.C6 = 84;
-ae__$Notes_Notes_$Impl_$.Db6 = 85;
-ae__$Notes_Notes_$Impl_$.D6 = 86;
-ae__$Notes_Notes_$Impl_$.Eb6 = 87;
-ae__$Notes_Notes_$Impl_$.E6 = 88;
-ae__$Notes_Notes_$Impl_$.F6 = 89;
-ae__$Notes_Notes_$Impl_$.Gb6 = 90;
-ae__$Notes_Notes_$Impl_$.G6 = 91;
-ae__$Notes_Notes_$Impl_$.Ab6 = 92;
-ae__$Notes_Notes_$Impl_$.A6 = 93;
-ae__$Notes_Notes_$Impl_$.Bb6 = 94;
-ae__$Notes_Notes_$Impl_$.B6 = 95;
-ae__$Notes_Notes_$Impl_$.C7 = 96;
-ae__$Notes_Notes_$Impl_$.Db7 = 97;
-ae__$Notes_Notes_$Impl_$.D7 = 98;
-ae__$Notes_Notes_$Impl_$.Eb7 = 99;
-ae__$Notes_Notes_$Impl_$.E7 = 100;
-ae__$Notes_Notes_$Impl_$.F7 = 101;
-ae__$Notes_Notes_$Impl_$.Gb7 = 102;
-ae__$Notes_Notes_$Impl_$.G7 = 103;
-ae__$Notes_Notes_$Impl_$.Ab7 = 104;
-ae__$Notes_Notes_$Impl_$.A7 = 105;
-ae__$Notes_Notes_$Impl_$.Bb7 = 106;
-ae__$Notes_Notes_$Impl_$.B7 = 107;
-ae__$Notes_Notes_$Impl_$.C8 = 108;
-ae__$Notes_Notes_$Impl_$.toIntMap = (function($this) {
-	var $r;
-	var _g = new haxe_ds_IntMap();
-	_g.set(21,21);
-	_g.set(23,23);
-	_g.set(24,24);
-	_g.set(26,26);
-	_g.set(28,28);
-	_g.set(29,29);
-	_g.set(31,31);
-	_g.set(33,33);
-	_g.set(35,35);
-	_g.set(36,36);
-	_g.set(38,38);
-	_g.set(40,40);
-	_g.set(41,41);
-	_g.set(43,43);
-	_g.set(45,45);
-	_g.set(47,47);
-	_g.set(48,48);
-	_g.set(50,50);
-	_g.set(52,52);
-	_g.set(53,53);
-	_g.set(55,55);
-	_g.set(57,57);
-	_g.set(59,59);
-	_g.set(60,60);
-	_g.set(62,62);
-	_g.set(64,64);
-	_g.set(65,65);
-	_g.set(67,67);
-	_g.set(69,69);
-	_g.set(71,71);
-	_g.set(72,72);
-	_g.set(74,74);
-	_g.set(76,76);
-	_g.set(77,77);
-	_g.set(79,79);
-	_g.set(81,81);
-	_g.set(83,83);
-	_g.set(84,84);
-	_g.set(86,86);
-	_g.set(88,88);
-	_g.set(89,89);
-	_g.set(91,91);
-	_g.set(93,93);
-	_g.set(95,95);
-	_g.set(96,96);
-	_g.set(98,98);
-	_g.set(100,100);
-	_g.set(101,101);
-	_g.set(103,103);
-	_g.set(105,105);
-	_g.set(107,107);
-	_g.set(108,108);
-	$r = _g;
-	return $r;
-}(this));
-ae__$Notes_Notes_$Impl_$.toNoteMap = (function($this) {
-	var $r;
-	var _g = new haxe_ds_IntMap();
-	_g.h[21] = 21;
-	_g.h[23] = 23;
-	_g.h[24] = 24;
-	_g.h[26] = 26;
-	_g.h[28] = 28;
-	_g.h[29] = 29;
-	_g.h[31] = 31;
-	_g.h[33] = 33;
-	_g.h[35] = 35;
-	_g.h[36] = 36;
-	_g.h[38] = 38;
-	_g.h[40] = 40;
-	_g.h[41] = 41;
-	_g.h[43] = 43;
-	_g.h[45] = 45;
-	_g.h[47] = 47;
-	_g.h[48] = 48;
-	_g.h[50] = 50;
-	_g.h[52] = 52;
-	_g.h[53] = 53;
-	_g.h[55] = 55;
-	_g.h[57] = 57;
-	_g.h[59] = 59;
-	_g.h[60] = 60;
-	_g.h[62] = 62;
-	_g.h[64] = 64;
-	_g.h[65] = 65;
-	_g.h[67] = 67;
-	_g.h[69] = 69;
-	_g.h[71] = 71;
-	_g.h[72] = 72;
-	_g.h[74] = 74;
-	_g.h[76] = 76;
-	_g.h[77] = 77;
-	_g.h[79] = 79;
-	_g.h[81] = 81;
-	_g.h[83] = 83;
-	_g.h[84] = 84;
-	_g.h[86] = 86;
-	_g.h[88] = 88;
-	_g.h[89] = 89;
-	_g.h[91] = 91;
-	_g.h[93] = 93;
-	_g.h[95] = 95;
-	_g.h[96] = 96;
-	_g.h[98] = 98;
-	_g.h[100] = 100;
-	_g.h[101] = 101;
-	_g.h[103] = 103;
-	_g.h[105] = 105;
-	_g.h[107] = 107;
-	_g.h[108] = 108;
-	$r = _g;
-	return $r;
-}(this));
 haxe_Unserializer.DEFAULT_RESOLVER = new haxe__$Unserializer_DefaultResolver();
 haxe_Unserializer.BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789%:";
 haxe_crypto_Base64.CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

@@ -1,5 +1,6 @@
 package ae;
 import kha.arrays.Float32Array;
+import kha.Assets;
 
 class AudioManager {
 	var isLinear:Bool = true;// i.e. : In composition mode or In-game
@@ -12,8 +13,11 @@ class AudioManager {
 	public static var instance(default, null):AudioManager = new AudioManager();
 	private function new(){
 		setTuning(Tunings.TET12);
+		// var snd:AudioClip = new AudioClip(Assets.sounds.get("tone.wav"));
+		// snd.play();
 
 	}
+	
 	/**
 	 * [Description]
 	 * Receives a tuning and sets the frequency data accordingly
