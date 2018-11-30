@@ -1,12 +1,13 @@
 package ae;
 
 class Clip {
-	public var isPlaying(get,null):Bool;
-	function get_isPlaying():Bool{
-		return isPlaying;
-	}
-	public var position(get,set):Float;
-	function get_position():Bool{
+	private var paused:Bool = false;
+	public var position(get,null):Float;
+	function get_position():Float{
 		return position;
 	}
+	public function play():Void{};
+	public function stop():Void{};
+	public function pause():Void{};
+	public function isPlaying():Bool{return false;}
 }

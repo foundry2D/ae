@@ -5,17 +5,18 @@ import kha.Sound;
 import kha.Assets;
 import kha.AssetError;
 
-class AudioClip {
+class AudioClip extends Clip {
 	private var channel:Null<AudioChannel> = null;
 	private var snd:Null<Sound>;
-	private var paused:Bool = false;
-	@:isVar public var volume(get,set):Float;
+	public var dirty:Bool = false;
+	@:isVar public var volume(get,set):Float=1.0;
 	function get_volume():Float{
-		return channel.volume;
+		return volume;
 	}
 	function set_volume(v:Float):Float{
-		channel.volume = v;
-		return channel.volume;
+		dirty = true;
+		volume = v;
+		return volume;
 	}
 	public function new(s:String){
 		var t = Assets.sounds.get(s);
@@ -34,7 +35,7 @@ class AudioClip {
 	function error(error:AssetError):Void{
 		trace(error);
 	}
-	public function play(){
+	public override function play(){
 		if(channel == null && snd != null){
 			channel = Audio.play(this.snd,false);
 			paused =false;
@@ -43,16 +44,28 @@ class AudioClip {
 			channel.play();
 			paused =false;
 		}
+		if(dirty){
+			channel.volume = volume;
+		}
 	}
-	public function stop():Void{
+	public override function stop():Void{
 		channel.stop();
 	}
-	public function pause():Void{
+	public override function pause():Void{
 		channel.pause();
 		paused =true;
 	}
-	public function isPlaying():Bool {
-		return !channel.finished && !paused;
+	public override function isPlaying():Bool {
+		return channel != null && !channel.finished && !paused;
+	}
+	public function sum_volume(?v:Null<Float>):Void{
+		if(v == null) {
+			channel.volume = volume;
+		}
+		else{
+			channel.volume = Amplitude.add(volume,v);
+		}
+		
 	}
 	
 }

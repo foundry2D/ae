@@ -1,6 +1,7 @@
 package ae;
 
-class IEvent {
+class IEvent<T> {
+	public var clip:Pair<T,Clip>;
 	private var start:Float;
 	private var end:Float;
 	private var loops:Bool;
@@ -12,8 +13,23 @@ class IEvent {
 	function get_position():Float{
 		return position;
 	}
-	private var parent:Null<IEvent> = null;
-	private var children:Array<IEvent> = [];
+	private var parent:Null<IEvent<T>> = null;
+	private var children:Array<IEvent<T>> = [];
 	public var type:EventType;
-	public function update():Void{return;};
+	public function update():Void{
+		if(AudioManager.instance.isLinear){
+			if(AudioManager.instance.position >= start && !clip.second.isPlaying()){
+				if(position >= clip.second.position){
+					clip.second.play();
+				}
+				
+			}
+		}
+		else if(position >= clip.second.position && !clip.second.isPlaying()){
+			clip.second.play();
+		}
+		for(c in children){
+			c.update();
+		}
+	}
 }

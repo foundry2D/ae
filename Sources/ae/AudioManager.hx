@@ -3,15 +3,22 @@ import kha.arrays.Float32Array;
 import kha.Assets;
 
 class AudioManager {
-	var isLinear:Bool = true;// i.e. : In composition mode or In-game
+	public var isLinear:Bool = true;// i.e. : In composition mode or In-game
 	var bpm = 120;
 	var time = [4,4];
+	public var position:Float = 0.0;
 	var metro = false;
 	static var freqs:Float32Array = new Float32Array(87);
-	var registered:Array<IEvent> = [];
+	public var registered:Array<IEvent<Dynamic>> = [];
 	var ref:Pair<Int,Int> = new Pair(69,440);// Midi number,Frequency
 	public static var instance(default, null):AudioManager = new AudioManager();
+	private var mixIndex(get,null):Int = -1;// Master is 0
+	function get_mixIndex():Int{
+		return mixIndex+=1;
+	}
+	public var mixer:MixerChannel;
 	private function new(){
+		mixer= new MixerChannel(mixIndex);
 		setTuning(Tunings.TET12);
 		// var snd:AudioClip = new AudioClip(Assets.sounds.get("tone.wav"));
 		// snd.play();
@@ -51,6 +58,15 @@ class AudioManager {
 			return freqs[m-21];
 		}
 		return 0.0;
+	}
+	public function addChannel(?pIndex:Null<Int>):MixerChannel {
+		if(pIndex == null){
+			return new MixerChannel(mixIndex,0);
+		}
+		else {
+			return new MixerChannel(mixIndex,pIndex);
+		}
+		
 	}
 	public function update():Void {
 		if(isLinear){

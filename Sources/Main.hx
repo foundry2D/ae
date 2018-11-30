@@ -10,10 +10,10 @@ class Main {
 	static var snd:Null<ae.AudioClip>;
 	static var godown:Bool = false;
 	static function update(): Void {
-		if(snd!= null){
-			trace(snd.isPlaying());
-		}
-		
+		// if(snd!= null){
+		// 	trace(snd.isPlaying);
+		// }
+		AudioManager.instance.update();
 
 	}
 
@@ -31,9 +31,11 @@ class Main {
 				System.notifyOnFrames(function (frames) { render(frames); });
 				AudioManager.instance;
 				snd = new ae.AudioClip('tone');
-				snd.play();
 				snd.volume = 0.1;
-				snd.stop();
+				var audioEvent = new ae.AudioEvent(snd,0.0,1.0,false);
+				AudioManager.instance.registered.push(audioEvent);
+				audioEvent.play();
+				
 				
 			});
 		});

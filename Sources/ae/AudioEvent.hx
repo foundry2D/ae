@@ -1,15 +1,14 @@
 package ae;
 
-class AudioEvent extends IEvent {
+class AudioEvent extends IEvent<AudioClip> {
 	private var canUpdate = false;
-	public var clip:Pair<Float,AudioClip>;
 	public var mixer:Null<MixerChannel> = null;
 	private var volume:Float = 0.0;
-	function new (clip:AudioClip,start:Float,end:Float,loops:Bool){
+	public function new (clip:AudioClip,start:Float,end:Float,loops:Bool){
 		this.start = start;
 		this.end = end;
 		this.loops = loops;
-		this.clip = new Pair(start,clip);
+		this.clip = new Pair(clip,cast(clip,Clip));
 		this.type = EventType.audio;
 
 	}
@@ -19,23 +18,14 @@ class AudioEvent extends IEvent {
 	public function stop():Void{
 		canUpdate = false;
 	}
-	public override update(){
-		if(AudioManager.instance.isLinear){
-			if(AudioManager.instance.position >= start && !clip.second.isPlaying()){
-				if(position >= clip.position){
-					clip.second.play();
-				}
-				
-			}
+	public override function update():Void{
+		super.update();
+		if(mixer != null && mixer.dirty || clip.first.dirty){
+			clip.first.sum_volume(mixer.volume);
+
 		}
-		else if(position >= clip.position && !clip.second.isPlaying()){
-			clip.second.play();
-		}
-		for(c in children){
-			c.update();
-		}
-		if(mixer != null){
-			
+		else if(clip.first.dirty){
+			clip.first.sum_volume();
 		}
 	}
 }
