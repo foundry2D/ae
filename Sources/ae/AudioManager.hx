@@ -1,4 +1,6 @@
 package ae;
+import haxe.ds.ObjectMap;
+import haxe.ds.Map;
 import kha.arrays.Float32Array;
 import kha.Assets;
 
@@ -9,9 +11,15 @@ class AudioManager {
 	public var position:Float = 0.0;
 	var metro = false;
 	static var freqs:Float32Array = new Float32Array(87);
-	public var registered:Array<IEvent<Dynamic>> = [];
+	var objects:ObjectMap<{},Int> = new ObjectMap();
+	var registered:Array<Array<IEvent<Clip>>> = [];
 	var ref:Pair<Int,Int> = new Pair(69,440);// Midi number,Frequency
+	public var sampleRate = 44100;
 	public static var instance(default, null):AudioManager = new AudioManager();
+	// public var index(get,null):Int = -1;// Master is 0
+	// function get_index():Int{
+	// 	return index+=1;
+	// }
 	private var mixIndex(get,null):Int = -1;// Master is 0
 	function get_mixIndex():Int{
 		return mixIndex+=1;
@@ -68,12 +76,62 @@ class AudioManager {
 		}
 		
 	}
+	/**
+	 * Try to register an IEvent; true on success and false on fail
+	 * @param event 
+	 * @return Bool
+	 */
+	public function register(event:Any,?object:Null<Any>=null):Bool{
+		var obj = object;
+		if(obj == null){
+			obj = this;
+		}
+		if(Std.is(event,IEvent)){
+			if(!objects.exists(obj)){
+				var t:Array<IEvent<Clip>> = [];
+				t.push((event:IEvent<Clip>));
+				objects.set(obj,registered.length);
+				registered.push(t);
+			}
+			else{
+				registered[objects.get(obj)].push((event:IEvent<Clip>));
+			}
+			return true;
+		}
+		return false;
+	}
+	public function unregister(name:String,object:Null<Any>){
+		var obj = object;
+		if(obj == null){
+			obj = this;
+		}
+		var t:Array<IEvent<Clip>> = [];
+		if(object != null && objects.exists(object)){
+			for(e in registered[objects.get(object)]){
+				if(e.name == name && e.isPlaying()){
+					e.stop();
+					t.push(e);
+				}
+				else if(e.name == name){
+					t.push(e);
+				}
+
+			}
+			for(e in t){
+				registered[objects.get(object)].remove(e);
+			}
+		}
+		
+	}
 	public function update():Void {
 		if(isLinear){
 			for(e in registered){
-				e.update();
+				for(t in e){
+					t.update();
+				}
 			}
 		}
+		position += 0.1;
 		
 
 	}

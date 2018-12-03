@@ -14,6 +14,7 @@ class Main {
 		// 	trace(snd.isPlaying);
 		// }
 		AudioManager.instance.update();
+		// AudioManager.instance.unregister("tone0",AudioManager.instance);
 
 	}
 
@@ -31,9 +32,10 @@ class Main {
 				System.notifyOnFrames(function (frames) { render(frames); });
 				AudioManager.instance;
 				snd = new ae.AudioClip('tone');
-				snd.volume = 0.1;
+				snd.volume = 0.7;
+				snd.pitch = 2.0;
 				var audioEvent = new ae.AudioEvent(snd,0.0,1.0,false);
-				AudioManager.instance.registered.push(audioEvent);
+				AudioManager.instance.register(audioEvent);
 				audioEvent.play();
 				
 				

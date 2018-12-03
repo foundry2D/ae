@@ -122,9 +122,10 @@ Main.main = function() {
 				Main.render(frames);
 			});
 			Main.snd = new ae_AudioClip("tone");
-			Main.snd.set_volume(0.1);
+			Main.snd.set_volume(0.7);
+			Main.snd.set_pitch(2.0);
 			var audioEvent = new ae_AudioEvent(Main.snd,0.0,1.0,false);
-			ae_AudioManager.instance.registered.push(audioEvent);
+			ae_AudioManager.instance.register(audioEvent);
 			audioEvent.play();
 		});
 	});
@@ -252,11 +253,13 @@ ae_Amplitude.add = function(vol1,vol2) {
 };
 var ae_Clip = function() {
 	this.paused = false;
+	this.name = "None";
 };
 $hxClasses["ae.Clip"] = ae_Clip;
 ae_Clip.__name__ = true;
 ae_Clip.prototype = {
-	paused: null
+	name: null
+	,paused: null
 	,position: null
 	,get_position: function() {
 		return this.position;
@@ -273,15 +276,21 @@ ae_Clip.prototype = {
 	,__class__: ae_Clip
 };
 var ae_AudioClip = function(s) {
+	this.pitch = 1.0;
+	this.lastPitch = 1.0;
 	this.volume = 1.0;
 	this.dirty = false;
+	this.b = new kha_audio2_Buffer(ae_AudioManager.instance.sampleRate,2,ae_AudioManager.instance.sampleRate);
 	this.channel = null;
 	ae_Clip.call(this);
 	var t = kha_Assets.sounds.get(s);
 	if(t == null) {
-		kha_Assets.loadSound(s,$bind(this,this.load),$bind(this,this.error),{ fileName : "ae/AudioClip.hx", lineNumber : 24, className : "ae.AudioClip", methodName : "new"});
+		kha_Assets.loadSound(s,$bind(this,this.load),$bind(this,this.error),{ fileName : "ae/AudioClip.hx", lineNumber : 35, className : "ae.AudioClip", methodName : "new"});
 	} else {
 		this.snd = t;
+		this.b.data = this.snd.uncompressedData;
+		this.name = s;
+		haxe_Log.trace(this.name,{ fileName : "ae/AudioClip.hx", lineNumber : 41, className : "ae.AudioClip", methodName : "new"});
 	}
 };
 $hxClasses["ae.AudioClip"] = ae_AudioClip;
@@ -290,6 +299,7 @@ ae_AudioClip.__super__ = ae_Clip;
 ae_AudioClip.prototype = $extend(ae_Clip.prototype,{
 	channel: null
 	,snd: null
+	,b: null
 	,dirty: null
 	,volume: null
 	,get_volume: function() {
@@ -300,16 +310,36 @@ ae_AudioClip.prototype = $extend(ae_Clip.prototype,{
 		this.volume = v;
 		return this.get_volume();
 	}
+	,lastPitch: null
+	,pitch: null
+	,get_pitch: function() {
+		return this.pitch;
+	}
+	,set_pitch: function(v) {
+		this.pitch = v;
+		return this.get_pitch();
+	}
 	,load: function(s) {
 		this.snd = s;
+		this.b.data = this.snd.uncompressedData;
 	}
 	,error: function(error) {
-		haxe_Log.trace(error,{ fileName : "ae/AudioClip.hx", lineNumber : 36, className : "ae.AudioClip", methodName : "error"});
+		haxe_Log.trace(error,{ fileName : "ae/AudioClip.hx", lineNumber : 53, className : "ae.AudioClip", methodName : "error"});
 	}
 	,play: function() {
-		if(this.channel == null && this.snd != null) {
+		var pitchDirty = false;
+		if(this.snd != null && this.get_pitch() != this.lastPitch) {
+			this.b.samplesPerSecond = ae_AudioManager.instance.sampleRate;
+			var tmp = this.b.samplesPerSecond * this.get_pitch() | 0;
+			this.b.samplesPerSecond = tmp;
+			this.snd.uncompressedData = this.b.data;
+			pitchDirty = true;
+			haxe_Log.trace("was here",{ fileName : "ae/AudioClip.hx", lineNumber : 63, className : "ae.AudioClip", methodName : "play"});
+		}
+		if(this.channel == null && this.snd != null || pitchDirty) {
 			this.channel = kha_audio2_Audio1.play(this.snd,false);
 			this.paused = false;
+			this.lastPitch = this.get_pitch();
 		} else if(this.channel != null && this.snd != null) {
 			this.channel.play();
 			this.paused = false;
@@ -344,15 +374,19 @@ ae_AudioClip.prototype = $extend(ae_Clip.prototype,{
 var ae_IEvent = function() {
 	this.children = [];
 	this.parent = null;
+	this.canUpdate = false;
+	this.name = "None";
 };
 $hxClasses["ae.IEvent"] = ae_IEvent;
 ae_IEvent.__name__ = true;
 ae_IEvent.prototype = {
-	clip: null
+	name: null
+	,clip: null
 	,start: null
 	,end: null
 	,loops: null
 	,length: null
+	,canUpdate: null
 	,get_length: function() {
 		return this.end - this.start;
 	}
@@ -363,9 +397,30 @@ ae_IEvent.prototype = {
 	,parent: null
 	,children: null
 	,type: null
+	,play: function() {
+		var _g = 0;
+		var _g1 = this.children;
+		while(_g < _g1.length) {
+			var c = _g1[_g];
+			++_g;
+			c.play();
+		}
+	}
+	,stop: function() {
+		var _g = 0;
+		var _g1 = this.children;
+		while(_g < _g1.length) {
+			var c = _g1[_g];
+			++_g;
+			c.stop();
+		}
+	}
 	,update: function() {
+		if(!this.canUpdate) {
+			return;
+		}
 		if(ae_AudioManager.instance.isLinear) {
-			if(ae_AudioManager.instance.position >= this.start && !this.clip.get_second().isPlaying()) {
+			if(ae_AudioManager.instance.position >= this.start && ae_AudioManager.instance.position <= this.end && !this.clip.get_second().isPlaying()) {
 				if(this.get_position() >= this.clip.get_second().get_position()) {
 					this.clip.get_second().play();
 				}
@@ -381,35 +436,49 @@ ae_IEvent.prototype = {
 			c.update();
 		}
 	}
+	,isPlaying: function() {
+		return this.canUpdate;
+	}
+	,addEvent: function(e) {
+		this.children.push(e);
+	}
+	,rmvEvent: function(e) {
+		HxOverrides.remove(this.children,e);
+	}
 	,__class__: ae_IEvent
 };
 var ae_AudioEvent = function(clip,start,end,loops) {
 	this.volume = 0.0;
 	this.mixer = null;
-	this.canUpdate = false;
 	ae_IEvent.call(this);
 	this.start = start;
 	this.end = end;
 	this.loops = loops;
 	this.clip = new ae_Pair(clip,js_Boot.__cast(clip , ae_Clip));
 	this.type = 0;
+	this.name = clip.name;
 };
 $hxClasses["ae.AudioEvent"] = ae_AudioEvent;
 ae_AudioEvent.__name__ = true;
 ae_AudioEvent.__super__ = ae_IEvent;
 ae_AudioEvent.prototype = $extend(ae_IEvent.prototype,{
-	canUpdate: null
-	,mixer: null
+	mixer: null
 	,volume: null
 	,play: function() {
+		ae_IEvent.prototype.play.call(this);
 		this.canUpdate = true;
 	}
 	,stop: function() {
+		ae_IEvent.prototype.stop.call(this);
 		this.canUpdate = false;
+		this.clip.get_first().stop();
 	}
 	,update: function() {
+		if(!this.canUpdate) {
+			return;
+		}
 		ae_IEvent.prototype.update.call(this);
-		if(this.mixer != null && this.mixer.get_dirty() || this.clip.get_first().dirty) {
+		if(this.mixer != null && this.mixer.get_dirty() || this.mixer != null && this.clip.get_first().dirty) {
 			this.clip.get_first().sum_volume(this.mixer.get_volume());
 		} else if(this.clip.get_first().dirty) {
 			this.clip.get_first().sum_volume();
@@ -419,7 +488,6 @@ ae_AudioEvent.prototype = $extend(ae_IEvent.prototype,{
 });
 var ae_MixerChannel = function(index,parent) {
 	this.children = new haxe_ds_IntMap();
-	this.parent = null;
 	this.volume = 1.0;
 	this.invertPhase = false;
 	this.index = index;
@@ -470,8 +538,10 @@ ae_MixerChannel.prototype = {
 };
 var ae_AudioManager = function() {
 	this.mixIndex = -1;
+	this.sampleRate = 44100;
 	this.ref = new ae_Pair(69,440);
 	this.registered = [];
+	this.objects = new haxe_ds_ObjectMap();
 	this.metro = false;
 	this.position = 0.0;
 	this.time = [4,4];
@@ -488,8 +558,10 @@ ae_AudioManager.prototype = {
 	,time: null
 	,position: null
 	,metro: null
+	,objects: null
 	,registered: null
 	,ref: null
+	,sampleRate: null
 	,mixIndex: null
 	,get_mixIndex: function() {
 		var tmp = this;
@@ -526,6 +598,51 @@ ae_AudioManager.prototype = {
 			return new ae_MixerChannel(this.get_mixIndex(),pIndex);
 		}
 	}
+	,register: function(event,object) {
+		var obj = object;
+		if(obj == null) {
+			obj = this;
+		}
+		if((event instanceof ae_IEvent)) {
+			if(this.objects.h.__keys__[obj.__id__] == null) {
+				var t = [];
+				t.push(event);
+				this.objects.set(obj,this.registered.length);
+				this.registered.push(t);
+			} else {
+				this.registered[this.objects.h[obj.__id__]].push(event);
+			}
+			return true;
+		}
+		return false;
+	}
+	,unregister: function(name,object) {
+		var obj = object;
+		if(obj == null) {
+			obj = this;
+		}
+		var t = [];
+		if(object != null && this.objects.h.__keys__[object.__id__] != null) {
+			var _g = 0;
+			var _g1 = this.registered[this.objects.h[object.__id__]];
+			while(_g < _g1.length) {
+				var e = _g1[_g];
+				++_g;
+				if(e.name == name && e.isPlaying()) {
+					e.stop();
+					t.push(e);
+				} else if(e.name == name) {
+					t.push(e);
+				}
+			}
+			var _g2 = 0;
+			while(_g2 < t.length) {
+				var e1 = t[_g2];
+				++_g2;
+				HxOverrides.remove(this.registered[this.objects.h[object.__id__]],e1);
+			}
+		}
+	}
 	,update: function() {
 		if(this.isLinear) {
 			var _g = 0;
@@ -533,9 +650,15 @@ ae_AudioManager.prototype = {
 			while(_g < _g1.length) {
 				var e = _g1[_g];
 				++_g;
-				e.update();
+				var _g2 = 0;
+				while(_g2 < e.length) {
+					var t = e[_g2];
+					++_g2;
+					t.update();
+				}
 			}
 		}
+		this.position += 0.1;
 	}
 	,__class__: ae_AudioManager
 };
