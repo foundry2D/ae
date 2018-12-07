@@ -121,12 +121,7 @@ Main.main = function() {
 			kha_System.notifyOnFrames(function(frames) {
 				Main.render(frames);
 			});
-			Main.snd = new ae_AudioClip("tone");
-			Main.snd.set_volume(0.7);
-			Main.snd.set_pitch(2.0);
-			var audioEvent = new ae_AudioEvent(Main.snd,0.0,1.0,false);
-			ae_AudioManager.instance.register(audioEvent);
-			audioEvent.play();
+			kha_input_Keyboard.get().notify(ae_Input.onKeyDown,ae_Input.onKeyUp);
 		});
 	});
 };
@@ -285,12 +280,12 @@ var ae_AudioClip = function(s) {
 	ae_Clip.call(this);
 	var t = kha_Assets.sounds.get(s);
 	if(t == null) {
-		kha_Assets.loadSound(s,$bind(this,this.load),$bind(this,this.error),{ fileName : "ae/AudioClip.hx", lineNumber : 35, className : "ae.AudioClip", methodName : "new"});
+		kha_Assets.loadSound(s,$bind(this,this.load),$bind(this,this.error),{ fileName : "ae/AudioClip.hx", lineNumber : 36, className : "ae.AudioClip", methodName : "new"});
 	} else {
 		this.snd = t;
 		this.b.data = this.snd.uncompressedData;
 		this.name = s;
-		haxe_Log.trace(this.name,{ fileName : "ae/AudioClip.hx", lineNumber : 41, className : "ae.AudioClip", methodName : "new"});
+		haxe_Log.trace(this.name,{ fileName : "ae/AudioClip.hx", lineNumber : 42, className : "ae.AudioClip", methodName : "new"});
 	}
 };
 $hxClasses["ae.AudioClip"] = ae_AudioClip;
@@ -324,17 +319,22 @@ ae_AudioClip.prototype = $extend(ae_Clip.prototype,{
 		this.b.data = this.snd.uncompressedData;
 	}
 	,error: function(error) {
-		haxe_Log.trace(error,{ fileName : "ae/AudioClip.hx", lineNumber : 53, className : "ae.AudioClip", methodName : "error"});
+		haxe_Log.trace(error,{ fileName : "ae/AudioClip.hx", lineNumber : 54, className : "ae.AudioClip", methodName : "error"});
 	}
 	,play: function() {
 		var pitchDirty = false;
+		this.snd.uncompressedData = this.b.data;
 		if(this.snd != null && this.get_pitch() != this.lastPitch) {
-			this.b.samplesPerSecond = ae_AudioManager.instance.sampleRate;
-			var tmp = this.b.samplesPerSecond * this.get_pitch() | 0;
-			this.b.samplesPerSecond = tmp;
-			this.snd.uncompressedData = this.b.data;
+			var this1 = new Float32Array(ae_AudioManager.instance.sampleRate * this.get_pitch() | 0);
+			var t = this1;
+			var _g = 0;
+			var _g1 = t.length;
+			while(_g < _g1) {
+				var i = _g++;
+				this.snd.uncompressedData[i] *= this.get_pitch();
+			}
 			pitchDirty = true;
-			haxe_Log.trace("was here",{ fileName : "ae/AudioClip.hx", lineNumber : 63, className : "ae.AudioClip", methodName : "play"});
+			haxe_Log.trace("was here",{ fileName : "ae/AudioClip.hx", lineNumber : 67, className : "ae.AudioClip", methodName : "play"});
 		}
 		if(this.channel == null && this.snd != null || pitchDirty) {
 			this.channel = kha_audio2_Audio1.play(this.snd,false);
@@ -371,121 +371,19 @@ ae_AudioClip.prototype = $extend(ae_Clip.prototype,{
 	}
 	,__class__: ae_AudioClip
 });
-var ae_IEvent = function() {
-	this.children = [];
-	this.parent = null;
-	this.canUpdate = false;
-	this.name = "None";
+var ae_Timer = function() {
 };
-$hxClasses["ae.IEvent"] = ae_IEvent;
-ae_IEvent.__name__ = true;
-ae_IEvent.prototype = {
-	name: null
-	,clip: null
-	,start: null
-	,end: null
-	,loops: null
-	,length: null
-	,canUpdate: null
-	,get_length: function() {
-		return this.end - this.start;
-	}
-	,position: null
-	,get_position: function() {
-		return this.position;
-	}
-	,parent: null
-	,children: null
-	,type: null
-	,play: function() {
-		var _g = 0;
-		var _g1 = this.children;
-		while(_g < _g1.length) {
-			var c = _g1[_g];
-			++_g;
-			c.play();
-		}
-	}
-	,stop: function() {
-		var _g = 0;
-		var _g1 = this.children;
-		while(_g < _g1.length) {
-			var c = _g1[_g];
-			++_g;
-			c.stop();
-		}
-	}
+$hxClasses["ae.Timer"] = ae_Timer;
+ae_Timer.__name__ = true;
+ae_Timer.prototype = {
+	delta: null
+	,current: null
 	,update: function() {
-		if(!this.canUpdate) {
-			return;
-		}
-		if(ae_AudioManager.instance.isLinear) {
-			if(ae_AudioManager.instance.position >= this.start && ae_AudioManager.instance.position <= this.end && !this.clip.get_second().isPlaying()) {
-				if(this.get_position() >= this.clip.get_second().get_position()) {
-					this.clip.get_second().play();
-				}
-			}
-		} else if(this.get_position() >= this.clip.get_second().get_position() && !this.clip.get_second().isPlaying()) {
-			this.clip.get_second().play();
-		}
-		var _g = 0;
-		var _g1 = this.children;
-		while(_g < _g1.length) {
-			var c = _g1[_g];
-			++_g;
-			c.update();
-		}
+		this.delta = kha_Scheduler.time() - this.current;
+		this.current = kha_Scheduler.time();
 	}
-	,isPlaying: function() {
-		return this.canUpdate;
-	}
-	,addEvent: function(e) {
-		this.children.push(e);
-	}
-	,rmvEvent: function(e) {
-		HxOverrides.remove(this.children,e);
-	}
-	,__class__: ae_IEvent
+	,__class__: ae_Timer
 };
-var ae_AudioEvent = function(clip,start,end,loops) {
-	this.volume = 0.0;
-	this.mixer = null;
-	ae_IEvent.call(this);
-	this.start = start;
-	this.end = end;
-	this.loops = loops;
-	this.clip = new ae_Pair(clip,js_Boot.__cast(clip , ae_Clip));
-	this.type = 0;
-	this.name = clip.name;
-};
-$hxClasses["ae.AudioEvent"] = ae_AudioEvent;
-ae_AudioEvent.__name__ = true;
-ae_AudioEvent.__super__ = ae_IEvent;
-ae_AudioEvent.prototype = $extend(ae_IEvent.prototype,{
-	mixer: null
-	,volume: null
-	,play: function() {
-		ae_IEvent.prototype.play.call(this);
-		this.canUpdate = true;
-	}
-	,stop: function() {
-		ae_IEvent.prototype.stop.call(this);
-		this.canUpdate = false;
-		this.clip.get_first().stop();
-	}
-	,update: function() {
-		if(!this.canUpdate) {
-			return;
-		}
-		ae_IEvent.prototype.update.call(this);
-		if(this.mixer != null && this.mixer.get_dirty() || this.mixer != null && this.clip.get_first().dirty) {
-			this.clip.get_first().sum_volume(this.mixer.get_volume());
-		} else if(this.clip.get_first().dirty) {
-			this.clip.get_first().sum_volume();
-		}
-	}
-	,__class__: ae_AudioEvent
-});
 var ae_MixerChannel = function(index,parent) {
 	this.children = new haxe_ds_IntMap();
 	this.volume = 1.0;
@@ -547,6 +445,7 @@ var ae_AudioManager = function() {
 	this.time = [4,4];
 	this.bpm = 120;
 	this.isLinear = true;
+	this.timer = new ae_Timer();
 	this.mixer = new ae_MixerChannel(this.get_mixIndex());
 	this.setTuning(0);
 };
@@ -562,6 +461,7 @@ ae_AudioManager.prototype = {
 	,registered: null
 	,ref: null
 	,sampleRate: null
+	,timer: null
 	,mixIndex: null
 	,get_mixIndex: function() {
 		var tmp = this;
@@ -644,6 +544,8 @@ ae_AudioManager.prototype = {
 		}
 	}
 	,update: function() {
+		this.timer.update();
+		ae_Oscillator.update(this.timer.current);
 		if(this.isLinear) {
 			var _g = 0;
 			var _g1 = this.registered;
@@ -661,6 +563,326 @@ ae_AudioManager.prototype = {
 		this.position += 0.1;
 	}
 	,__class__: ae_AudioManager
+};
+var ae_IEvent = function() {
+	this.children = [];
+	this.parent = null;
+	this.canUpdate = false;
+	this.name = "None";
+};
+$hxClasses["ae.IEvent"] = ae_IEvent;
+ae_IEvent.__name__ = true;
+ae_IEvent.prototype = {
+	name: null
+	,clip: null
+	,start: null
+	,end: null
+	,loops: null
+	,length: null
+	,canUpdate: null
+	,get_length: function() {
+		return this.end - this.start;
+	}
+	,position: null
+	,get_position: function() {
+		return this.position;
+	}
+	,parent: null
+	,children: null
+	,type: null
+	,play: function() {
+		var _g = 0;
+		var _g1 = this.children;
+		while(_g < _g1.length) {
+			var c = _g1[_g];
+			++_g;
+			c.play();
+		}
+	}
+	,stop: function() {
+		var _g = 0;
+		var _g1 = this.children;
+		while(_g < _g1.length) {
+			var c = _g1[_g];
+			++_g;
+			c.stop();
+		}
+	}
+	,update: function() {
+		if(!this.canUpdate) {
+			return;
+		}
+		if(ae_AudioManager.instance.isLinear) {
+			if(ae_AudioManager.instance.position >= this.start && ae_AudioManager.instance.position <= this.end && !this.clip.get_second().isPlaying()) {
+				if(this.get_position() >= this.clip.get_second().get_position()) {
+					this.clip.get_second().play();
+				}
+			}
+		} else if(this.get_position() >= this.clip.get_second().get_position() && !this.clip.get_second().isPlaying()) {
+			this.clip.get_second().play();
+		}
+		var _g = 0;
+		var _g1 = this.children;
+		while(_g < _g1.length) {
+			var c = _g1[_g];
+			++_g;
+			c.update();
+		}
+	}
+	,isPlaying: function() {
+		return this.canUpdate;
+	}
+	,addEvent: function(e) {
+		this.children.push(e);
+	}
+	,rmvEvent: function(e) {
+		HxOverrides.remove(this.children,e);
+	}
+	,__class__: ae_IEvent
+};
+var ae_Input = function() { };
+$hxClasses["ae.Input"] = ae_Input;
+ae_Input.__name__ = true;
+ae_Input.onKeyDown = function(keyCode) {
+	switch(keyCode) {
+	case 65:
+		ae_Input.note.push(60);
+		break;
+	case 68:
+		ae_Input.note.push(64);
+		break;
+	case 83:
+		ae_Input.note.push(62);
+		break;
+	case 87:
+		ae_Input.note.push(61);
+		break;
+	default:
+		return;
+	}
+	haxe_Log.trace(ae_Input.note,{ fileName : "ae/Input.hx", lineNumber : 21, className : "ae.Input", methodName : "onKeyDown"});
+};
+ae_Input.onKeyUp = function(keyCode) {
+	switch(keyCode) {
+	case 65:
+		HxOverrides.remove(ae_Input.note,60);
+		break;
+	case 68:
+		HxOverrides.remove(ae_Input.note,64);
+		break;
+	case 83:
+		HxOverrides.remove(ae_Input.note,62);
+		break;
+	case 87:
+		HxOverrides.remove(ae_Input.note,61);
+		break;
+	default:
+		return;
+	}
+	haxe_Log.trace(ae_Input.note,{ fileName : "ae/Input.hx", lineNumber : 37, className : "ae.Input", methodName : "onKeyUp"});
+};
+var ae_MacroTools = function() { };
+$hxClasses["ae.MacroTools"] = ae_MacroTools;
+ae_MacroTools.__name__ = true;
+var ae__$Notes_Notes_$Impl_$ = {};
+$hxClasses["ae._Notes.Notes_Impl_"] = ae__$Notes_Notes_$Impl_$;
+ae__$Notes_Notes_$Impl_$.__name__ = true;
+ae__$Notes_Notes_$Impl_$.toFreq = function(n) {
+	return ae_AudioManager.instance.toFreqs(ae__$Notes_Notes_$Impl_$.toIntMap.get(n));
+};
+ae__$Notes_Notes_$Impl_$.toMidi = function(n) {
+	return ae__$Notes_Notes_$Impl_$.toIntMap.get(n);
+};
+ae__$Notes_Notes_$Impl_$.toNote = function(m) {
+	return ae__$Notes_Notes_$Impl_$.toNoteMap.h[m];
+};
+var kha_audio1_AudioChannel = function() { };
+$hxClasses["kha.audio1.AudioChannel"] = kha_audio1_AudioChannel;
+kha_audio1_AudioChannel.__name__ = true;
+kha_audio1_AudioChannel.prototype = {
+	play: null
+	,pause: null
+	,stop: null
+	,length: null
+	,get_length: null
+	,position: null
+	,get_position: null
+	,get_volume: null
+	,set_volume: null
+	,finished: null
+	,get_finished: null
+	,__class__: kha_audio1_AudioChannel
+};
+var kha_audio2_AudioChannel = function(looping) {
+	this.paused = false;
+	this.looping = looping;
+	this.myVolume = 1;
+	this.myPosition = 0;
+};
+$hxClasses["kha.audio2.AudioChannel"] = kha_audio2_AudioChannel;
+kha_audio2_AudioChannel.__name__ = true;
+kha_audio2_AudioChannel.__interfaces__ = [kha_audio1_AudioChannel];
+kha_audio2_AudioChannel.prototype = {
+	data: null
+	,myVolume: null
+	,myPosition: null
+	,paused: null
+	,looping: null
+	,nextSamples: function(samples,length,sampleRate) {
+		if(this.paused) {
+			var _g = 0;
+			var _g1 = length;
+			while(_g < _g1) {
+				var i = _g++;
+				samples[i] = 0;
+			}
+			return;
+		}
+		var w_ptr = 0;
+		var chk_ptr = 0;
+		while(w_ptr < length) {
+			var addressable_data = this.data.length - this.myPosition;
+			var next_chunk = addressable_data < length - w_ptr ? addressable_data : length - w_ptr;
+			while(chk_ptr < next_chunk) {
+				samples[w_ptr] = this.data[this.myPosition];
+				++this.myPosition;
+				++chk_ptr;
+				++w_ptr;
+			}
+			if(!this.looping) {
+				break;
+			} else {
+				chk_ptr = 0;
+				if(this.myPosition >= this.data.length) {
+					this.myPosition = 0;
+				}
+			}
+		}
+		while(w_ptr < length) {
+			samples[w_ptr] = 0;
+			++w_ptr;
+		}
+	}
+	,play: function() {
+		this.paused = false;
+		if(this.get_finished()) {
+			this.myPosition = 0;
+			kha_audio2_Audio1._playAgain(this);
+		}
+	}
+	,pause: function() {
+		this.paused = true;
+	}
+	,stop: function() {
+		this.myPosition = this.data.length;
+	}
+	,length: null
+	,get_length: function() {
+		return this.data.length / 44100 / 2;
+	}
+	,position: null
+	,get_position: function() {
+		return this.myPosition / 44100 / 2;
+	}
+	,get_volume: function() {
+		return this.myVolume;
+	}
+	,set_volume: function(value) {
+		return this.myVolume = value;
+	}
+	,finished: null
+	,get_finished: function() {
+		return this.myPosition >= this.data.length;
+	}
+	,__class__: kha_audio2_AudioChannel
+};
+var kha_Resource = function() { };
+$hxClasses["kha.Resource"] = kha_Resource;
+kha_Resource.__name__ = true;
+kha_Resource.prototype = {
+	unload: null
+	,__class__: kha_Resource
+};
+var kha_Sound = function() {
+};
+$hxClasses["kha.Sound"] = kha_Sound;
+kha_Sound.__name__ = true;
+kha_Sound.__interfaces__ = [kha_Resource];
+kha_Sound.prototype = {
+	compressedData: null
+	,uncompressedData: null
+	,uncompress: function(done) {
+		if(this.uncompressedData != null) {
+			done();
+			return;
+		}
+		var output = new haxe_io_BytesOutput();
+		var header = kha_audio2_ogg_vorbis_Reader.readAll(this.compressedData,output,true);
+		var soundBytes = output.getBytes();
+		var count = soundBytes.length / 4 | 0;
+		if(header.channel == 1) {
+			var this1 = new Float32Array(count * 2);
+			this.uncompressedData = this1;
+			var _g = 0;
+			var _g1 = count;
+			while(_g < _g1) {
+				var i = _g++;
+				this.uncompressedData[i * 2] = soundBytes.getFloat(i * 4);
+				this.uncompressedData[i * 2 + 1] = soundBytes.getFloat(i * 4);
+			}
+		} else {
+			var this2 = new Float32Array(count);
+			this.uncompressedData = this2;
+			var _g2 = 0;
+			var _g11 = count;
+			while(_g2 < _g11) {
+				var i1 = _g2++;
+				this.uncompressedData[i1] = soundBytes.getFloat(i1 * 4);
+			}
+		}
+		this.compressedData = null;
+		done();
+	}
+	,unload: function() {
+		this.compressedData = null;
+		this.uncompressedData = null;
+	}
+	,__class__: kha_Sound
+};
+var ae_Oscillator = function() { };
+$hxClasses["ae.Oscillator"] = ae_Oscillator;
+ae_Oscillator.__name__ = true;
+ae_Oscillator.sin = function(amp,freq) {
+	var y = amp * Math.sin(ae_Oscillator.phase);
+	ae_Oscillator.phase += ae_Oscillator["const"] * freq / ae_Oscillator.mult;
+	if(ae_Oscillator.phase > ae_Oscillator["const"]) {
+		ae_Oscillator.phase -= ae_Oscillator["const"];
+		haxe_Log.trace(ae_Oscillator.t,{ fileName : "ae/Oscillator.hx", lineNumber : 22, className : "ae.Oscillator", methodName : "sin"});
+		haxe_Log.trace("stopped",{ fileName : "ae/Oscillator.hx", lineNumber : 23, className : "ae.Oscillator", methodName : "sin"});
+	}
+	return y;
+};
+ae_Oscillator.update = function(dt) {
+	if(ae_Oscillator.channel.data == null) {
+		ae_Oscillator.channel.data = ae_Oscillator.buf;
+	}
+	if(ae_Input.note.length > 0 && !ae_Oscillator.isPlaying) {
+		ae_Oscillator.phase = 0.0;
+		ae_Oscillator.channel.set_volume(0.7);
+		var freq = ae_AudioManager.instance.toFreqs(ae__$Notes_Notes_$Impl_$.toIntMap.get(ae_Input.note[0]));
+		var _g = 0;
+		var _g1 = ae_AudioManager.instance.sampleRate;
+		while(_g < _g1) {
+			var i = _g++;
+			ae_Oscillator.channel.data[i] = ae_Oscillator.sin(1.0,freq);
+			ae_Oscillator.t = i;
+		}
+		kha_audio2_Audio1._playAgain(ae_Oscillator.channel);
+		ae_Oscillator.isPlaying = true;
+	} else if(ae_Input.note.length == 0 && ae_Oscillator.channel.data != null) {
+		ae_Oscillator.isPlaying = false;
+		ae_Oscillator.channel.set_volume(0.0);
+	}
 };
 var ae_Pair = function(f,s) {
 	this.set_first(f);
@@ -697,6 +919,11 @@ ae_Pair.prototype = {
 var haxe_IMap = function() { };
 $hxClasses["haxe.IMap"] = haxe_IMap;
 haxe_IMap.__name__ = true;
+haxe_IMap.prototype = {
+	get: null
+	,set: null
+	,__class__: haxe_IMap
+};
 var haxe_Log = function() { };
 $hxClasses["haxe.Log"] = haxe_Log;
 haxe_Log.__name__ = true;
@@ -1314,6 +1541,12 @@ haxe_ds_IntMap.__name__ = true;
 haxe_ds_IntMap.__interfaces__ = [haxe_IMap];
 haxe_ds_IntMap.prototype = {
 	h: null
+	,set: function(key,value) {
+		this.h[key] = value;
+	}
+	,get: function(key) {
+		return this.h[key];
+	}
 	,keys: function() {
 		var a = [];
 		for( var key in this.h ) if(this.h.hasOwnProperty(key)) {
@@ -1376,6 +1609,9 @@ haxe_ds_ObjectMap.prototype = {
 		this.h[id] = value;
 		this.h.__keys__[id] = key;
 	}
+	,get: function(key) {
+		return this.h[key.__id__];
+	}
 	,__class__: haxe_ds_ObjectMap
 };
 var haxe_ds_StringMap = function() {
@@ -1387,6 +1623,19 @@ haxe_ds_StringMap.__interfaces__ = [haxe_IMap];
 haxe_ds_StringMap.prototype = {
 	h: null
 	,rh: null
+	,set: function(key,value) {
+		if(__map_reserved[key] != null) {
+			this.setReserved(key,value);
+		} else {
+			this.h[key] = value;
+		}
+	}
+	,get: function(key) {
+		if(__map_reserved[key] != null) {
+			return this.getReserved(key);
+		}
+		return this.h[key];
+	}
 	,setReserved: function(key,value) {
 		if(this.rh == null) {
 			this.rh = { };
@@ -2392,13 +2641,6 @@ kha_Canvas.prototype = {
 	,g2: null
 	,g4: null
 	,__class__: kha_Canvas
-};
-var kha_Resource = function() { };
-$hxClasses["kha.Resource"] = kha_Resource;
-kha_Resource.__name__ = true;
-kha_Resource.prototype = {
-	unload: null
-	,__class__: kha_Resource
 };
 var kha_Image = function() { };
 $hxClasses["kha.Image"] = kha_Image;
@@ -3981,52 +4223,6 @@ kha_Shaders.init = function() {
 	var bytes15 = haxe_Unserializer.run(data15);
 	blobs7.push(kha_internal_BytesBlob.fromBytes(bytes15));
 	kha_Shaders.painter_video_vert = new kha_graphics4_VertexShader(blobs7,["painter-video.vert.essl","painter-video-webgl2.vert.essl"]);
-};
-var kha_Sound = function() {
-};
-$hxClasses["kha.Sound"] = kha_Sound;
-kha_Sound.__name__ = true;
-kha_Sound.__interfaces__ = [kha_Resource];
-kha_Sound.prototype = {
-	compressedData: null
-	,uncompressedData: null
-	,uncompress: function(done) {
-		if(this.uncompressedData != null) {
-			done();
-			return;
-		}
-		var output = new haxe_io_BytesOutput();
-		var header = kha_audio2_ogg_vorbis_Reader.readAll(this.compressedData,output,true);
-		var soundBytes = output.getBytes();
-		var count = soundBytes.length / 4 | 0;
-		if(header.channel == 1) {
-			var this1 = new Float32Array(count * 2);
-			this.uncompressedData = this1;
-			var _g = 0;
-			var _g1 = count;
-			while(_g < _g1) {
-				var i = _g++;
-				this.uncompressedData[i * 2] = soundBytes.getFloat(i * 4);
-				this.uncompressedData[i * 2 + 1] = soundBytes.getFloat(i * 4);
-			}
-		} else {
-			var this2 = new Float32Array(count);
-			this.uncompressedData = this2;
-			var _g2 = 0;
-			var _g11 = count;
-			while(_g2 < _g11) {
-				var i1 = _g2++;
-				this.uncompressedData[i1] = soundBytes.getFloat(i1 * 4);
-			}
-		}
-		this.compressedData = null;
-		done();
-	}
-	,unload: function() {
-		this.compressedData = null;
-		this.uncompressedData = null;
-	}
-	,__class__: kha_Sound
 };
 var kha_SystemOptions = function(title,width,height,$window,framebuffer) {
 	if(height == null) {
@@ -5948,23 +6144,6 @@ kha_arrays__$Uint32Array_Uint32Array_$Impl_$.arrayWrite = function(this1,index,v
 kha_arrays__$Uint32Array_Uint32Array_$Impl_$.subarray = function(this1,start,end) {
 	return this1.subarray(start,end);
 };
-var kha_audio1_AudioChannel = function() { };
-$hxClasses["kha.audio1.AudioChannel"] = kha_audio1_AudioChannel;
-kha_audio1_AudioChannel.__name__ = true;
-kha_audio1_AudioChannel.prototype = {
-	play: null
-	,pause: null
-	,stop: null
-	,length: null
-	,get_length: null
-	,position: null
-	,get_position: null
-	,get_volume: null
-	,set_volume: null
-	,finished: null
-	,get_finished: null
-	,__class__: kha_audio1_AudioChannel
-};
 var kha_audio2_Audio = function() { };
 $hxClasses["kha.audio2.Audio"] = kha_audio2_Audio;
 kha_audio2_Audio.__name__ = true;
@@ -6200,89 +6379,6 @@ kha_audio2_Audio1.stream = function(sound,loop) {
 		}
 	}
 	return channel;
-};
-var kha_audio2_AudioChannel = function(looping) {
-	this.paused = false;
-	this.looping = looping;
-	this.myVolume = 1;
-	this.myPosition = 0;
-};
-$hxClasses["kha.audio2.AudioChannel"] = kha_audio2_AudioChannel;
-kha_audio2_AudioChannel.__name__ = true;
-kha_audio2_AudioChannel.__interfaces__ = [kha_audio1_AudioChannel];
-kha_audio2_AudioChannel.prototype = {
-	data: null
-	,myVolume: null
-	,myPosition: null
-	,paused: null
-	,looping: null
-	,nextSamples: function(samples,length,sampleRate) {
-		if(this.paused) {
-			var _g = 0;
-			var _g1 = length;
-			while(_g < _g1) {
-				var i = _g++;
-				samples[i] = 0;
-			}
-			return;
-		}
-		var w_ptr = 0;
-		var chk_ptr = 0;
-		while(w_ptr < length) {
-			var addressable_data = this.data.length - this.myPosition;
-			var next_chunk = addressable_data < length - w_ptr ? addressable_data : length - w_ptr;
-			while(chk_ptr < next_chunk) {
-				samples[w_ptr] = this.data[this.myPosition];
-				++this.myPosition;
-				++chk_ptr;
-				++w_ptr;
-			}
-			if(!this.looping) {
-				break;
-			} else {
-				chk_ptr = 0;
-				if(this.myPosition >= this.data.length) {
-					this.myPosition = 0;
-				}
-			}
-		}
-		while(w_ptr < length) {
-			samples[w_ptr] = 0;
-			++w_ptr;
-		}
-	}
-	,play: function() {
-		this.paused = false;
-		if(this.get_finished()) {
-			this.myPosition = 0;
-			kha_audio2_Audio1._playAgain(this);
-		}
-	}
-	,pause: function() {
-		this.paused = true;
-	}
-	,stop: function() {
-		this.myPosition = this.data.length;
-	}
-	,length: null
-	,get_length: function() {
-		return this.data.length / 44100 / 2;
-	}
-	,position: null
-	,get_position: function() {
-		return this.myPosition / 44100 / 2;
-	}
-	,get_volume: function() {
-		return this.myVolume;
-	}
-	,set_volume: function(value) {
-		return this.myVolume = value;
-	}
-	,finished: null
-	,get_finished: function() {
-		return this.myPosition >= this.data.length;
-	}
-	,__class__: kha_audio2_AudioChannel
 };
 var kha_audio2_Buffer = function(size,channels,samplesPerSecond) {
 	this.size = size;
@@ -20983,6 +21079,298 @@ ae_AudioManager.freqs = (function($this) {
 	return $r;
 }(this));
 ae_AudioManager.instance = new ae_AudioManager();
+ae_Input.note = [];
+ae_Input.numPressed = 0;
+ae__$Notes_Notes_$Impl_$.A0 = 21;
+ae__$Notes_Notes_$Impl_$.BB0 = 22;
+ae__$Notes_Notes_$Impl_$.B0 = 23;
+ae__$Notes_Notes_$Impl_$.C1 = 24;
+ae__$Notes_Notes_$Impl_$.DD1 = 25;
+ae__$Notes_Notes_$Impl_$.D1 = 26;
+ae__$Notes_Notes_$Impl_$.EE1 = 27;
+ae__$Notes_Notes_$Impl_$.E1 = 28;
+ae__$Notes_Notes_$Impl_$.F1 = 29;
+ae__$Notes_Notes_$Impl_$.GG1 = 30;
+ae__$Notes_Notes_$Impl_$.G1 = 31;
+ae__$Notes_Notes_$Impl_$.AA1 = 32;
+ae__$Notes_Notes_$Impl_$.A1 = 33;
+ae__$Notes_Notes_$Impl_$.BB1 = 34;
+ae__$Notes_Notes_$Impl_$.B1 = 35;
+ae__$Notes_Notes_$Impl_$.C2 = 36;
+ae__$Notes_Notes_$Impl_$.DD2 = 37;
+ae__$Notes_Notes_$Impl_$.D2 = 38;
+ae__$Notes_Notes_$Impl_$.EE2 = 39;
+ae__$Notes_Notes_$Impl_$.E2 = 40;
+ae__$Notes_Notes_$Impl_$.F2 = 41;
+ae__$Notes_Notes_$Impl_$.GG2 = 42;
+ae__$Notes_Notes_$Impl_$.G2 = 43;
+ae__$Notes_Notes_$Impl_$.AA2 = 44;
+ae__$Notes_Notes_$Impl_$.A2 = 45;
+ae__$Notes_Notes_$Impl_$.BB2 = 46;
+ae__$Notes_Notes_$Impl_$.B2 = 47;
+ae__$Notes_Notes_$Impl_$.C3 = 48;
+ae__$Notes_Notes_$Impl_$.DD3 = 49;
+ae__$Notes_Notes_$Impl_$.D3 = 50;
+ae__$Notes_Notes_$Impl_$.EE3 = 51;
+ae__$Notes_Notes_$Impl_$.E3 = 52;
+ae__$Notes_Notes_$Impl_$.F3 = 53;
+ae__$Notes_Notes_$Impl_$.GG3 = 54;
+ae__$Notes_Notes_$Impl_$.G3 = 55;
+ae__$Notes_Notes_$Impl_$.AA3 = 56;
+ae__$Notes_Notes_$Impl_$.A3 = 57;
+ae__$Notes_Notes_$Impl_$.BB3 = 58;
+ae__$Notes_Notes_$Impl_$.B3 = 59;
+ae__$Notes_Notes_$Impl_$.C4 = 60;
+ae__$Notes_Notes_$Impl_$.DD4 = 61;
+ae__$Notes_Notes_$Impl_$.D4 = 62;
+ae__$Notes_Notes_$Impl_$.EE4 = 63;
+ae__$Notes_Notes_$Impl_$.E4 = 64;
+ae__$Notes_Notes_$Impl_$.F4 = 65;
+ae__$Notes_Notes_$Impl_$.GG4 = 66;
+ae__$Notes_Notes_$Impl_$.G4 = 67;
+ae__$Notes_Notes_$Impl_$.AA4 = 68;
+ae__$Notes_Notes_$Impl_$.A4 = 69;
+ae__$Notes_Notes_$Impl_$.BB4 = 70;
+ae__$Notes_Notes_$Impl_$.B4 = 71;
+ae__$Notes_Notes_$Impl_$.C5 = 72;
+ae__$Notes_Notes_$Impl_$.DD5 = 73;
+ae__$Notes_Notes_$Impl_$.D5 = 74;
+ae__$Notes_Notes_$Impl_$.EE5 = 75;
+ae__$Notes_Notes_$Impl_$.E5 = 76;
+ae__$Notes_Notes_$Impl_$.F5 = 77;
+ae__$Notes_Notes_$Impl_$.GG5 = 78;
+ae__$Notes_Notes_$Impl_$.G5 = 79;
+ae__$Notes_Notes_$Impl_$.AA5 = 80;
+ae__$Notes_Notes_$Impl_$.A5 = 81;
+ae__$Notes_Notes_$Impl_$.BB5 = 82;
+ae__$Notes_Notes_$Impl_$.B5 = 83;
+ae__$Notes_Notes_$Impl_$.C6 = 84;
+ae__$Notes_Notes_$Impl_$.DD6 = 85;
+ae__$Notes_Notes_$Impl_$.D6 = 86;
+ae__$Notes_Notes_$Impl_$.EE6 = 87;
+ae__$Notes_Notes_$Impl_$.E6 = 88;
+ae__$Notes_Notes_$Impl_$.F6 = 89;
+ae__$Notes_Notes_$Impl_$.GG6 = 90;
+ae__$Notes_Notes_$Impl_$.G6 = 91;
+ae__$Notes_Notes_$Impl_$.AA6 = 92;
+ae__$Notes_Notes_$Impl_$.A6 = 93;
+ae__$Notes_Notes_$Impl_$.BB6 = 94;
+ae__$Notes_Notes_$Impl_$.B6 = 95;
+ae__$Notes_Notes_$Impl_$.C7 = 96;
+ae__$Notes_Notes_$Impl_$.DD7 = 97;
+ae__$Notes_Notes_$Impl_$.D7 = 98;
+ae__$Notes_Notes_$Impl_$.EE7 = 99;
+ae__$Notes_Notes_$Impl_$.E7 = 100;
+ae__$Notes_Notes_$Impl_$.F7 = 101;
+ae__$Notes_Notes_$Impl_$.GG7 = 102;
+ae__$Notes_Notes_$Impl_$.G7 = 103;
+ae__$Notes_Notes_$Impl_$.AA7 = 104;
+ae__$Notes_Notes_$Impl_$.A7 = 105;
+ae__$Notes_Notes_$Impl_$.BB7 = 106;
+ae__$Notes_Notes_$Impl_$.B7 = 107;
+ae__$Notes_Notes_$Impl_$.C8 = 108;
+ae__$Notes_Notes_$Impl_$.toIntMap = (function($this) {
+	var $r;
+	var _g = new haxe_ds_IntMap();
+	_g.set(21,21);
+	_g.set(22,22);
+	_g.set(23,23);
+	_g.set(24,24);
+	_g.set(25,25);
+	_g.set(26,26);
+	_g.set(27,27);
+	_g.set(28,28);
+	_g.set(29,29);
+	_g.set(30,30);
+	_g.set(31,31);
+	_g.set(32,32);
+	_g.set(33,33);
+	_g.set(34,34);
+	_g.set(35,35);
+	_g.set(36,36);
+	_g.set(37,37);
+	_g.set(38,38);
+	_g.set(39,39);
+	_g.set(40,40);
+	_g.set(41,41);
+	_g.set(42,42);
+	_g.set(43,43);
+	_g.set(44,44);
+	_g.set(45,45);
+	_g.set(46,46);
+	_g.set(47,47);
+	_g.set(48,48);
+	_g.set(49,49);
+	_g.set(50,50);
+	_g.set(51,51);
+	_g.set(52,52);
+	_g.set(53,53);
+	_g.set(54,54);
+	_g.set(55,55);
+	_g.set(56,56);
+	_g.set(57,57);
+	_g.set(58,58);
+	_g.set(59,59);
+	_g.set(60,60);
+	_g.set(61,61);
+	_g.set(62,62);
+	_g.set(63,63);
+	_g.set(64,64);
+	_g.set(65,65);
+	_g.set(66,66);
+	_g.set(67,67);
+	_g.set(68,68);
+	_g.set(69,69);
+	_g.set(70,70);
+	_g.set(71,71);
+	_g.set(72,72);
+	_g.set(73,73);
+	_g.set(74,74);
+	_g.set(75,75);
+	_g.set(76,76);
+	_g.set(77,77);
+	_g.set(78,78);
+	_g.set(79,79);
+	_g.set(80,80);
+	_g.set(81,81);
+	_g.set(82,82);
+	_g.set(83,83);
+	_g.set(84,84);
+	_g.set(85,85);
+	_g.set(86,86);
+	_g.set(87,87);
+	_g.set(88,88);
+	_g.set(89,89);
+	_g.set(90,90);
+	_g.set(91,91);
+	_g.set(92,92);
+	_g.set(93,93);
+	_g.set(94,94);
+	_g.set(95,95);
+	_g.set(96,96);
+	_g.set(97,97);
+	_g.set(98,98);
+	_g.set(99,99);
+	_g.set(100,100);
+	_g.set(101,101);
+	_g.set(102,102);
+	_g.set(103,103);
+	_g.set(104,104);
+	_g.set(105,105);
+	_g.set(106,106);
+	_g.set(107,107);
+	_g.set(108,108);
+	$r = _g;
+	return $r;
+}(this));
+ae__$Notes_Notes_$Impl_$.toNoteMap = (function($this) {
+	var $r;
+	var _g = new haxe_ds_IntMap();
+	_g.h[21] = 21;
+	_g.h[22] = 22;
+	_g.h[23] = 23;
+	_g.h[24] = 24;
+	_g.h[25] = 25;
+	_g.h[26] = 26;
+	_g.h[27] = 27;
+	_g.h[28] = 28;
+	_g.h[29] = 29;
+	_g.h[30] = 30;
+	_g.h[31] = 31;
+	_g.h[32] = 32;
+	_g.h[33] = 33;
+	_g.h[34] = 34;
+	_g.h[35] = 35;
+	_g.h[36] = 36;
+	_g.h[37] = 37;
+	_g.h[38] = 38;
+	_g.h[39] = 39;
+	_g.h[40] = 40;
+	_g.h[41] = 41;
+	_g.h[42] = 42;
+	_g.h[43] = 43;
+	_g.h[44] = 44;
+	_g.h[45] = 45;
+	_g.h[46] = 46;
+	_g.h[47] = 47;
+	_g.h[48] = 48;
+	_g.h[49] = 49;
+	_g.h[50] = 50;
+	_g.h[51] = 51;
+	_g.h[52] = 52;
+	_g.h[53] = 53;
+	_g.h[54] = 54;
+	_g.h[55] = 55;
+	_g.h[56] = 56;
+	_g.h[57] = 57;
+	_g.h[58] = 58;
+	_g.h[59] = 59;
+	_g.h[60] = 60;
+	_g.h[61] = 61;
+	_g.h[62] = 62;
+	_g.h[63] = 63;
+	_g.h[64] = 64;
+	_g.h[65] = 65;
+	_g.h[66] = 66;
+	_g.h[67] = 67;
+	_g.h[68] = 68;
+	_g.h[69] = 69;
+	_g.h[70] = 70;
+	_g.h[71] = 71;
+	_g.h[72] = 72;
+	_g.h[73] = 73;
+	_g.h[74] = 74;
+	_g.h[75] = 75;
+	_g.h[76] = 76;
+	_g.h[77] = 77;
+	_g.h[78] = 78;
+	_g.h[79] = 79;
+	_g.h[80] = 80;
+	_g.h[81] = 81;
+	_g.h[82] = 82;
+	_g.h[83] = 83;
+	_g.h[84] = 84;
+	_g.h[85] = 85;
+	_g.h[86] = 86;
+	_g.h[87] = 87;
+	_g.h[88] = 88;
+	_g.h[89] = 89;
+	_g.h[90] = 90;
+	_g.h[91] = 91;
+	_g.h[92] = 92;
+	_g.h[93] = 93;
+	_g.h[94] = 94;
+	_g.h[95] = 95;
+	_g.h[96] = 96;
+	_g.h[97] = 97;
+	_g.h[98] = 98;
+	_g.h[99] = 99;
+	_g.h[100] = 100;
+	_g.h[101] = 101;
+	_g.h[102] = 102;
+	_g.h[103] = 103;
+	_g.h[104] = 104;
+	_g.h[105] = 105;
+	_g.h[106] = 106;
+	_g.h[107] = 107;
+	_g.h[108] = 108;
+	$r = _g;
+	return $r;
+}(this));
+ae_Oscillator.buf = (function($this) {
+	var $r;
+	var this1 = new Float32Array(ae_AudioManager.instance.sampleRate);
+	$r = this1;
+	return $r;
+}(this));
+ae_Oscillator.snd = new kha_Sound();
+ae_Oscillator.mult = ae_AudioManager.instance.sampleRate;
+ae_Oscillator["const"] = 2 * Math.PI;
+ae_Oscillator.channel = new kha_audio2_AudioChannel(true);
+ae_Oscillator.phase = -ae_Oscillator["const"];
+ae_Oscillator.t = 0;
+ae_Oscillator.lastSecond = 0.0;
+ae_Oscillator.isPlaying = false;
 haxe_Unserializer.DEFAULT_RESOLVER = new haxe__$Unserializer_DefaultResolver();
 haxe_Unserializer.BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789%:";
 haxe_crypto_Base64.CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

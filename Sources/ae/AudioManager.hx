@@ -1,8 +1,10 @@
 package ae;
+
 import haxe.ds.ObjectMap;
 import haxe.ds.Map;
 import kha.arrays.Float32Array;
-import kha.Assets;
+import ae.Timer;
+import ae.Input;
 
 class AudioManager {
 	public var isLinear:Bool = true;// i.e. : In composition mode or In-game
@@ -16,6 +18,7 @@ class AudioManager {
 	var ref:Pair<Int,Int> = new Pair(69,440);// Midi number,Frequency
 	public var sampleRate = 44100;
 	public static var instance(default, null):AudioManager = new AudioManager();
+	private var timer:Timer;
 	// public var index(get,null):Int = -1;// Master is 0
 	// function get_index():Int{
 	// 	return index+=1;
@@ -26,6 +29,7 @@ class AudioManager {
 	}
 	public var mixer:MixerChannel;
 	private function new(){
+		this.timer = new Timer();
 		mixer= new MixerChannel(mixIndex);
 		setTuning(Tunings.TET12);
 		// var snd:AudioClip = new AudioClip(Assets.sounds.get("tone.wav"));
@@ -124,6 +128,8 @@ class AudioManager {
 		
 	}
 	public function update():Void {
+		timer.update();
+		Oscillator.update(timer.current);
 		if(isLinear){
 			for(e in registered){
 				for(t in e){

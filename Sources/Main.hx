@@ -5,6 +5,8 @@ import kha.Assets;
 import kha.Framebuffer;
 import kha.Scheduler;
 import kha.System;
+import kha.input.Keyboard;
+import ae.Input;
 
 class Main {
 	static var snd:Null<ae.AudioClip>;
@@ -31,12 +33,13 @@ class Main {
 				Scheduler.addTimeTask(function () { update(); }, 0, 1 / 60);
 				System.notifyOnFrames(function (frames) { render(frames); });
 				AudioManager.instance;
-				snd = new ae.AudioClip('tone');
-				snd.volume = 0.7;
-				snd.pitch = 2.0;
-				var audioEvent = new ae.AudioEvent(snd,0.0,1.0,false);
-				AudioManager.instance.register(audioEvent);
-				audioEvent.play();
+				Keyboard.get().notify(Input.onKeyDown,Input.onKeyUp);
+				// snd = new ae.AudioClip('tone');
+				// snd.volume = 0.7;
+				// snd.pitch = 2.0;
+				// var audioEvent = new ae.AudioEvent(snd,0.0,1.0,false);
+				// AudioManager.instance.register(audioEvent);
+				// audioEvent.play();
 				
 				
 			});
