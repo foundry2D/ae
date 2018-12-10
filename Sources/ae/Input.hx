@@ -2,7 +2,7 @@ package ae;
 
 import kha.input.KeyCode;
 class Input {
-	public static var note:Array<Notes> = [];
+	public static var note:List<Notes> = new List();
 	private static var numPressed = 0;
 
 	public static function onKeyDown(keyCode:Int){
@@ -18,7 +18,7 @@ class Input {
 			default:
 				return;
 		}
-		trace(note);
+		// trace(note);
 
 	}
 	public static function onKeyUp(keyCode:Int){
@@ -34,7 +34,7 @@ class Input {
 			default:
 				return;
 		}
-		trace(note);
+		// trace(note);
 		
 	}
 }

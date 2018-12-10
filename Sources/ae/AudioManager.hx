@@ -129,7 +129,7 @@ class AudioManager {
 	}
 	public function update():Void {
 		timer.update();
-		Oscillator.update(timer.current);
+		Oscillator.update(timer.delta);
 		if(isLinear){
 			for(e in registered){
 				for(t in e){
@@ -137,7 +137,7 @@ class AudioManager {
 				}
 			}
 		}
-		position += 0.1;
+		position += 0.1*timer.delta;
 		
 
 	}

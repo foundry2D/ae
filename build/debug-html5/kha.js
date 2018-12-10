@@ -122,6 +122,12 @@ Main.main = function() {
 				Main.render(frames);
 			});
 			kha_input_Keyboard.get().notify(ae_Input.onKeyDown,ae_Input.onKeyUp);
+			Main.snd = new ae_AudioClip("tone");
+			Main.snd.set_volume(0.7);
+			Main.snd.set_pitch(1.3);
+			var audioEvent = new ae_AudioEvent(Main.snd,0.0,1.0,false);
+			ae_AudioManager.instance.register(audioEvent);
+			audioEvent.play();
 		});
 	});
 };
@@ -371,6 +377,121 @@ ae_AudioClip.prototype = $extend(ae_Clip.prototype,{
 	}
 	,__class__: ae_AudioClip
 });
+var ae_IEvent = function() {
+	this.children = [];
+	this.parent = null;
+	this.canUpdate = false;
+	this.name = "None";
+};
+$hxClasses["ae.IEvent"] = ae_IEvent;
+ae_IEvent.__name__ = true;
+ae_IEvent.prototype = {
+	name: null
+	,clip: null
+	,start: null
+	,end: null
+	,loops: null
+	,length: null
+	,canUpdate: null
+	,get_length: function() {
+		return this.end - this.start;
+	}
+	,position: null
+	,get_position: function() {
+		return this.position;
+	}
+	,parent: null
+	,children: null
+	,type: null
+	,play: function() {
+		var _g = 0;
+		var _g1 = this.children;
+		while(_g < _g1.length) {
+			var c = _g1[_g];
+			++_g;
+			c.play();
+		}
+	}
+	,stop: function() {
+		var _g = 0;
+		var _g1 = this.children;
+		while(_g < _g1.length) {
+			var c = _g1[_g];
+			++_g;
+			c.stop();
+		}
+	}
+	,update: function() {
+		if(!this.canUpdate) {
+			return;
+		}
+		if(ae_AudioManager.instance.isLinear) {
+			if(ae_AudioManager.instance.position >= this.start && ae_AudioManager.instance.position <= this.end && !this.clip.get_second().isPlaying()) {
+				if(this.get_position() >= this.clip.get_second().get_position()) {
+					this.clip.get_second().play();
+				}
+			}
+		} else if(this.get_position() >= this.clip.get_second().get_position() && !this.clip.get_second().isPlaying()) {
+			this.clip.get_second().play();
+		}
+		var _g = 0;
+		var _g1 = this.children;
+		while(_g < _g1.length) {
+			var c = _g1[_g];
+			++_g;
+			c.update();
+		}
+	}
+	,isPlaying: function() {
+		return this.canUpdate;
+	}
+	,addEvent: function(e) {
+		this.children.push(e);
+	}
+	,rmvEvent: function(e) {
+		HxOverrides.remove(this.children,e);
+	}
+	,__class__: ae_IEvent
+};
+var ae_AudioEvent = function(clip,start,end,loops) {
+	this.volume = 0.0;
+	this.mixer = null;
+	ae_IEvent.call(this);
+	this.start = start;
+	this.end = end;
+	this.loops = loops;
+	this.clip = new ae_Pair(clip,js_Boot.__cast(clip , ae_Clip));
+	this.type = 0;
+	this.name = clip.name;
+};
+$hxClasses["ae.AudioEvent"] = ae_AudioEvent;
+ae_AudioEvent.__name__ = true;
+ae_AudioEvent.__super__ = ae_IEvent;
+ae_AudioEvent.prototype = $extend(ae_IEvent.prototype,{
+	mixer: null
+	,volume: null
+	,play: function() {
+		ae_IEvent.prototype.play.call(this);
+		this.canUpdate = true;
+	}
+	,stop: function() {
+		ae_IEvent.prototype.stop.call(this);
+		this.canUpdate = false;
+		this.clip.get_first().stop();
+	}
+	,update: function() {
+		if(!this.canUpdate) {
+			return;
+		}
+		ae_IEvent.prototype.update.call(this);
+		if(this.mixer != null && this.mixer.get_dirty() || this.mixer != null && this.clip.get_first().dirty) {
+			this.clip.get_first().sum_volume(this.mixer.get_volume());
+		} else if(this.clip.get_first().dirty) {
+			this.clip.get_first().sum_volume();
+		}
+	}
+	,__class__: ae_AudioEvent
+});
 var ae_Timer = function() {
 };
 $hxClasses["ae.Timer"] = ae_Timer;
@@ -545,7 +666,7 @@ ae_AudioManager.prototype = {
 	}
 	,update: function() {
 		this.timer.update();
-		ae_Oscillator.update(this.timer.current);
+		ae_Oscillator.update(this.timer.delta);
 		if(this.isLinear) {
 			var _g = 0;
 			var _g1 = this.registered;
@@ -560,85 +681,66 @@ ae_AudioManager.prototype = {
 				}
 			}
 		}
-		this.position += 0.1;
+		this.position += 0.1 * this.timer.delta;
 	}
 	,__class__: ae_AudioManager
 };
-var ae_IEvent = function() {
-	this.children = [];
-	this.parent = null;
-	this.canUpdate = false;
-	this.name = "None";
+var haxe_ds_List = function() {
+	this.length = 0;
 };
-$hxClasses["ae.IEvent"] = ae_IEvent;
-ae_IEvent.__name__ = true;
-ae_IEvent.prototype = {
-	name: null
-	,clip: null
-	,start: null
-	,end: null
-	,loops: null
+$hxClasses["haxe.ds.List"] = haxe_ds_List;
+haxe_ds_List.__name__ = true;
+haxe_ds_List.prototype = {
+	h: null
+	,q: null
 	,length: null
-	,canUpdate: null
-	,get_length: function() {
-		return this.end - this.start;
+	,add: function(item) {
+		var x = new haxe_ds__$List_ListNode(item,null);
+		if(this.h == null) {
+			this.h = x;
+		} else {
+			this.q.next = x;
+		}
+		this.q = x;
+		this.length++;
 	}
-	,position: null
-	,get_position: function() {
-		return this.position;
+	,push: function(item) {
+		var x = new haxe_ds__$List_ListNode(item,this.h);
+		this.h = x;
+		if(this.q == null) {
+			this.q = x;
+		}
+		this.length++;
 	}
-	,parent: null
-	,children: null
-	,type: null
-	,play: function() {
-		var _g = 0;
-		var _g1 = this.children;
-		while(_g < _g1.length) {
-			var c = _g1[_g];
-			++_g;
-			c.play();
+	,first: function() {
+		if(this.h == null) {
+			return null;
+		} else {
+			return this.h.item;
 		}
 	}
-	,stop: function() {
-		var _g = 0;
-		var _g1 = this.children;
-		while(_g < _g1.length) {
-			var c = _g1[_g];
-			++_g;
-			c.stop();
-		}
-	}
-	,update: function() {
-		if(!this.canUpdate) {
-			return;
-		}
-		if(ae_AudioManager.instance.isLinear) {
-			if(ae_AudioManager.instance.position >= this.start && ae_AudioManager.instance.position <= this.end && !this.clip.get_second().isPlaying()) {
-				if(this.get_position() >= this.clip.get_second().get_position()) {
-					this.clip.get_second().play();
+	,remove: function(v) {
+		var prev = null;
+		var l = this.h;
+		while(l != null) {
+			if(l.item == v) {
+				if(prev == null) {
+					this.h = l.next;
+				} else {
+					prev.next = l.next;
 				}
+				if(this.q == l) {
+					this.q = prev;
+				}
+				this.length--;
+				return true;
 			}
-		} else if(this.get_position() >= this.clip.get_second().get_position() && !this.clip.get_second().isPlaying()) {
-			this.clip.get_second().play();
+			prev = l;
+			l = l.next;
 		}
-		var _g = 0;
-		var _g1 = this.children;
-		while(_g < _g1.length) {
-			var c = _g1[_g];
-			++_g;
-			c.update();
-		}
+		return false;
 	}
-	,isPlaying: function() {
-		return this.canUpdate;
-	}
-	,addEvent: function(e) {
-		this.children.push(e);
-	}
-	,rmvEvent: function(e) {
-		HxOverrides.remove(this.children,e);
-	}
-	,__class__: ae_IEvent
+	,__class__: haxe_ds_List
 };
 var ae_Input = function() { };
 $hxClasses["ae.Input"] = ae_Input;
@@ -660,26 +762,24 @@ ae_Input.onKeyDown = function(keyCode) {
 	default:
 		return;
 	}
-	haxe_Log.trace(ae_Input.note,{ fileName : "ae/Input.hx", lineNumber : 21, className : "ae.Input", methodName : "onKeyDown"});
 };
 ae_Input.onKeyUp = function(keyCode) {
 	switch(keyCode) {
 	case 65:
-		HxOverrides.remove(ae_Input.note,60);
+		ae_Input.note.remove(60);
 		break;
 	case 68:
-		HxOverrides.remove(ae_Input.note,64);
+		ae_Input.note.remove(64);
 		break;
 	case 83:
-		HxOverrides.remove(ae_Input.note,62);
+		ae_Input.note.remove(62);
 		break;
 	case 87:
-		HxOverrides.remove(ae_Input.note,61);
+		ae_Input.note.remove(61);
 		break;
 	default:
 		return;
 	}
-	haxe_Log.trace(ae_Input.note,{ fileName : "ae/Input.hx", lineNumber : 37, className : "ae.Input", methodName : "onKeyUp"});
 };
 var ae_MacroTools = function() { };
 $hxClasses["ae.MacroTools"] = ae_MacroTools;
@@ -688,9 +788,15 @@ var ae__$Notes_Notes_$Impl_$ = {};
 $hxClasses["ae._Notes.Notes_Impl_"] = ae__$Notes_Notes_$Impl_$;
 ae__$Notes_Notes_$Impl_$.__name__ = true;
 ae__$Notes_Notes_$Impl_$.toFreq = function(n) {
-	return ae_AudioManager.instance.toFreqs(ae__$Notes_Notes_$Impl_$.toIntMap.get(n));
+	if(n == null) {
+		return -1.0;
+	}
+	return ae_AudioManager.instance.toFreqs(n == null ? -1 : ae__$Notes_Notes_$Impl_$.toIntMap.get(n));
 };
 ae__$Notes_Notes_$Impl_$.toMidi = function(n) {
+	if(n == null) {
+		return -1;
+	}
 	return ae__$Notes_Notes_$Impl_$.toIntMap.get(n);
 };
 ae__$Notes_Notes_$Impl_$.toNote = function(m) {
@@ -852,14 +958,44 @@ kha_Sound.prototype = {
 var ae_Oscillator = function() { };
 $hxClasses["ae.Oscillator"] = ae_Oscillator;
 ae_Oscillator.__name__ = true;
+ae_Oscillator.phaseIterate = function(freq) {
+	ae_Oscillator.phase += ae_Oscillator["const"] * freq * ae_Oscillator.mult;
+	if(ae_Oscillator.phase > ae_Oscillator["const"] + ae_Oscillator.initPhase) {
+		ae_Oscillator.phase -= ae_Oscillator["const"];
+		if(ae_Oscillator.endIndex >= ae_AudioManager.instance.sampleRate - 150) {
+			ae_Oscillator.cycleStop = true;
+		}
+	}
+};
 ae_Oscillator.sin = function(amp,freq) {
 	var y = amp * Math.sin(ae_Oscillator.phase);
-	ae_Oscillator.phase += ae_Oscillator["const"] * freq / ae_Oscillator.mult;
-	if(ae_Oscillator.phase > ae_Oscillator["const"]) {
-		ae_Oscillator.phase -= ae_Oscillator["const"];
-		haxe_Log.trace(ae_Oscillator.t,{ fileName : "ae/Oscillator.hx", lineNumber : 22, className : "ae.Oscillator", methodName : "sin"});
-		haxe_Log.trace("stopped",{ fileName : "ae/Oscillator.hx", lineNumber : 23, className : "ae.Oscillator", methodName : "sin"});
+	ae_Oscillator.phaseIterate(freq);
+	return y;
+};
+ae_Oscillator.square = function(amp,freq) {
+	var y = 0.0;
+	if(ae_Oscillator.phase < Math.PI) {
+		y = amp;
+	} else {
+		y = -amp;
 	}
+	ae_Oscillator.phaseIterate(freq);
+	return y;
+};
+ae_Oscillator.saw = function(amp,freq) {
+	var y = amp - amp / Math.PI * ae_Oscillator.phase;
+	ae_Oscillator.phaseIterate(freq);
+	return y;
+};
+ae_Oscillator.tri = function(amp,freq) {
+	var y = 0.0;
+	var value = 2 * amp / Math.PI * ae_Oscillator.phase;
+	if(ae_Oscillator.phase < Math.PI) {
+		y = -amp + value;
+	} else {
+		y = 3 * amp - value;
+	}
+	ae_Oscillator.phaseIterate(freq);
 	return y;
 };
 ae_Oscillator.update = function(dt) {
@@ -867,21 +1003,38 @@ ae_Oscillator.update = function(dt) {
 		ae_Oscillator.channel.data = ae_Oscillator.buf;
 	}
 	if(ae_Input.note.length > 0 && !ae_Oscillator.isPlaying) {
-		ae_Oscillator.phase = 0.0;
+		ae_Oscillator.phase = ae_Oscillator.initPhase;
 		ae_Oscillator.channel.set_volume(0.7);
-		var freq = ae_AudioManager.instance.toFreqs(ae__$Notes_Notes_$Impl_$.toIntMap.get(ae_Input.note[0]));
+		var n = ae_Input.note.first();
+		var freq = n == null ? -1.0 : ae_AudioManager.instance.toFreqs(n == null ? -1 : ae__$Notes_Notes_$Impl_$.toIntMap.get(n));
+		var a = [];
 		var _g = 0;
 		var _g1 = ae_AudioManager.instance.sampleRate;
 		while(_g < _g1) {
 			var i = _g++;
-			ae_Oscillator.channel.data[i] = ae_Oscillator.sin(1.0,freq);
-			ae_Oscillator.t = i;
+			var value = ae_Oscillator.tri(1.0,freq);
+			if(ae_Oscillator.cycleStop) {
+				break;
+			}
+			a.push(value);
+			ae_Oscillator.endIndex = i;
 		}
+		var this1 = new Float32Array(a.length);
+		var temp = this1;
+		var _g2 = 0;
+		var _g3 = a.length;
+		while(_g2 < _g3) {
+			var i1 = _g2++;
+			temp[i1] = a[i1];
+		}
+		ae_Oscillator.channel.data = temp;
+		ae_Oscillator.cycleStop = false;
 		kha_audio2_Audio1._playAgain(ae_Oscillator.channel);
 		ae_Oscillator.isPlaying = true;
 	} else if(ae_Input.note.length == 0 && ae_Oscillator.channel.data != null) {
 		ae_Oscillator.isPlaying = false;
 		ae_Oscillator.channel.set_volume(0.0);
+		ae_Oscillator.endIndex = 0;
 	}
 };
 var ae_Pair = function(f,s) {
@@ -1563,27 +1716,6 @@ haxe_ds_IntMap.prototype = {
 		}};
 	}
 	,__class__: haxe_ds_IntMap
-};
-var haxe_ds_List = function() {
-	this.length = 0;
-};
-$hxClasses["haxe.ds.List"] = haxe_ds_List;
-haxe_ds_List.__name__ = true;
-haxe_ds_List.prototype = {
-	h: null
-	,q: null
-	,length: null
-	,add: function(item) {
-		var x = new haxe_ds__$List_ListNode(item,null);
-		if(this.h == null) {
-			this.h = x;
-		} else {
-			this.q.next = x;
-		}
-		this.q = x;
-		this.length++;
-	}
-	,__class__: haxe_ds_List
 };
 var haxe_ds__$List_ListNode = function(item,next) {
 	this.item = item;
@@ -21079,7 +21211,7 @@ ae_AudioManager.freqs = (function($this) {
 	return $r;
 }(this));
 ae_AudioManager.instance = new ae_AudioManager();
-ae_Input.note = [];
+ae_Input.note = new haxe_ds_List();
 ae_Input.numPressed = 0;
 ae__$Notes_Notes_$Impl_$.A0 = 21;
 ae__$Notes_Notes_$Impl_$.BB0 = 22;
@@ -21364,11 +21496,14 @@ ae_Oscillator.buf = (function($this) {
 	return $r;
 }(this));
 ae_Oscillator.snd = new kha_Sound();
-ae_Oscillator.mult = ae_AudioManager.instance.sampleRate;
+ae_Oscillator.mult = 1 / ae_AudioManager.instance.sampleRate;
 ae_Oscillator["const"] = 2 * Math.PI;
 ae_Oscillator.channel = new kha_audio2_AudioChannel(true);
-ae_Oscillator.phase = -ae_Oscillator["const"];
-ae_Oscillator.t = 0;
+ae_Oscillator.initPhase = 0.0;
+ae_Oscillator.oscType = 0;
+ae_Oscillator.phase = 0.0;
+ae_Oscillator.endIndex = 0;
+ae_Oscillator.cycleStop = false;
 ae_Oscillator.lastSecond = 0.0;
 ae_Oscillator.isPlaying = false;
 haxe_Unserializer.DEFAULT_RESOLVER = new haxe__$Unserializer_DefaultResolver();

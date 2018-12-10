@@ -99,10 +99,16 @@ package ae;
 	 * @param n 
 	 * @return Float
 	 */
-	public static inline function toFreq(n:Notes):Float{
+	public static inline function toFreq(n:Null<Notes>):Float{
+		if(n==null){
+			return -1.0;
+		}
 		return AudioManager.instance.toFreqs(toMidi(n));
 	}
-	public static inline function toMidi(n:Notes):Int {
+	public static inline function toMidi(n:Null<Notes>):Int {
+		if(n==null){
+			return -1;
+		}
 		return toIntMap.get(n);
 	}
 	public static inline function toNote(m:Int):Notes {
